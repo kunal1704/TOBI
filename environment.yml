@@ -1,0 +1,24 @@
+name: tobi
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.11
+  - pip
+
+  - pip:
+      - git
+      - streamlit
+      - openai
+      - trafilatura
+      - requests
+      - beautifulsoup4
+      - lxml
+      - scikit-learn
+      - sentence-transformers
+      - python-dotenv
+      - torch
+      - torchvision
+      - torchaudio
