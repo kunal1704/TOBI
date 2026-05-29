@@ -34,6 +34,8 @@ TOBI is intended for:
 4. Multi-page extraction
 5. Semantic ranking
 6. LLM-based profile synthesis
+7. User-guided email drafting
+8. Gmail draft creation
 
 ## Architecture
 
@@ -57,6 +59,7 @@ Structured Personalization Context
 - Streamlit
 - Sentence Transformers
 - OpenRouter API
+- Gmail API
 - Trafilatura
 - BeautifulSoup
 - scikit-learn
@@ -72,4 +75,29 @@ conda activate tobi
 
 Create .env
 
-API_KEY = your_key_here
+OPENROUTER_API_KEY = your_key_here
+
+Optional Gmail settings:
+
+GMAIL_CREDENTIALS_FILE = credentials.json
+GMAIL_TOKEN_FILE = token.json
+
+To save drafts to Gmail, enable the Gmail API in Google Cloud, create an
+OAuth desktop client, download it as credentials.json, and run the app.
+The first draft save opens a Google OAuth flow and stores token.json locally.
+
+## RUN
+
+streamlit run app.py
+
+## Future Work
+
+Planned extensions:
+
+- Multi-agent retrieval
+- RAG memory layer
+- Tone-conditioned email generation
+- Persona-aware prompting
+- Citation-aware retrieval
+- Graph-based profile synthesis
+- Autonomous outreach optimization

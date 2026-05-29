@@ -1,8 +1,3 @@
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
-
-
 """
 Semantic Page Ranking Module
 ----------------------------
@@ -16,8 +11,7 @@ Improve retrieval quality for downstream
 LLM-based personalization.
 """
 
-# Load embedding model once
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = None
 
 # Semantic queries representing useful academic/professional content
 SEMANTIC_QUERIES = [
@@ -45,6 +39,15 @@ def rank_pages_semantically(page_data):
         }
     ]
     """
+
+    global model
+
+    from sentence_transformers import SentenceTransformer
+    from sklearn.metrics.pairwise import cosine_similarity
+    import numpy as np
+
+    if model is None:
+        model = SentenceTransformer("all-MiniLM-L6-v2")
 
     ranked_pages = []
 
