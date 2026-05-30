@@ -18,6 +18,7 @@ the user token at GMAIL_TOKEN_FILE.
 SCOPES = ["https://www.googleapis.com/auth/gmail.compose"]
 DEFAULT_CREDENTIALS_FILE = "credentials.json"
 DEFAULT_TOKEN_FILE = "token.json"
+GMAIL_DRAFTS_URL = "https://mail.google.com/mail/u/0/#drafts"
 
 
 def _load_google_imports():
@@ -69,7 +70,7 @@ def _get_gmail_service():
     return build("gmail", "v1", credentials=creds)
 
 
-def create_gmail_draft(to_email, subject, body, sender_name=None):
+def create_gmail_draft(to_email, subject, body):
     if not to_email:
         raise ValueError("Recipient email is required before saving a Gmail draft.")
 
@@ -88,4 +89,7 @@ def create_gmail_draft(to_email, subject, body, sender_name=None):
         }
     }
 
-    return service.users().drafts().create(userId="me", body=draft_body).execute()
+    draft = service.users().drafts().create(userId="me", body=draft_body).execute()
+    draft["gmail_url"] = GMAIL_DRAFTS_URL
+
+    return draft

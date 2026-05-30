@@ -35,6 +35,9 @@ def generate_email_draft(profile, context, details):
     The email should be specific, natural, and grounded in the extracted facts.
     Do not invent achievements, affiliations, publications, or personal details.
     Keep the message skimmable and avoid over-flattery.
+    Use the sender background only when it strengthens credibility or relevance.
+    Honor the requested length, tone, call to action, and any things to avoid.
+    End with a polished sign-off using the sender name when available.
 
     Return ONLY valid JSON with this schema:
     {{
