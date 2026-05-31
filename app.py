@@ -1898,13 +1898,31 @@ def render_workflow():
             """, unsafe_allow_html=True)
 
             summary = st.session_state.get("extraction_summary")
-            if st.session_state.get("email_draft") and summary:
+            profile = st.session_state.get("profile")
+
+            if st.session_state.get("email_draft") and summary and profile and "error" not in profile:
+                def fmt(val):
+                    if isinstance(val, list):
+                        return ", ".join(str(v) for v in val)
+                    return str(val) if val else ""
+
+                interests = fmt(profile.get("Research interests", ""))
+                topics = fmt(profile.get("Current topics", ""))
+                signals = fmt(profile.get("Personalization hooks", ""))
+
+                lines = []
+                if interests:
+                    lines.append(f'<div class="runtime-step"><span style="color:var(--text-muted)">Research:</span> {escape(interests)}</div>')
+                if topics:
+                    lines.append(f'<div class="runtime-step"><span style="color:var(--text-muted)">Topics:</span> {escape(topics)}</div>')
+                if signals:
+                    lines.append(f'<div class="runtime-step"><span style="color:var(--text-muted)">Signals:</span> {escape(signals)}</div>')
+                lines.append(f'<div class="runtime-step"><span style="color:var(--text-muted)">Pages:</span> {summary["links_found"]} found, {summary["pages_ranked"]} ranked</div>')
+
                 st.markdown(f"""
                 <div class="runtime-card" style="margin-top:1rem">
                     <div class="runtime-card-header">Signals Identified</div>
-                    <div class="preview-row"><span class="preview-label">Pages Ranked</span><span class="preview-value">{summary["pages_ranked"]}</span></div>
-                    <div class="preview-row"><span class="preview-label">Relevant Links</span><span class="preview-value">{summary["relevant_links"]}</span></div>
-                    <div class="preview-row"><span class="preview-label">Links Found</span><span class="preview-value">{summary["links_found"]}</span></div>
+                    {''.join(lines)}
                 </div>
                 """, unsafe_allow_html=True)
             else:
