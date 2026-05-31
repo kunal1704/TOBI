@@ -1898,7 +1898,7 @@ def render_workflow():
             """, unsafe_allow_html=True)
 
             summary = st.session_state.get("extraction_summary")
-            if done and summary:
+            if st.session_state.get("email_draft") and summary:
                 st.markdown(f"""
                 <div class="runtime-card" style="margin-top:1rem">
                     <div class="runtime-card-header">Signals Identified</div>
