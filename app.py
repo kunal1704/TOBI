@@ -1494,8 +1494,42 @@ def render_nav(show_try=True):
 
 def render_landing():
     render_nav(show_try=True)
+
+    draft = st.session_state.get("email_draft")
+    latest = st.session_state.get("outreach_history", [])
+    has_draft = draft and latest
+    sample = latest[0] if has_draft else None
+
+    if has_draft and sample:
+        hero_name = escape(sample["recipient_name"])
+        hero_website = escape(sample["website"])
+        hero_intent = escape(sample.get("intent", "Outreach"))
+        hero_links = sample.get("links_found", 0)
+        hero_relevant = sample.get("relevant_links", 0)
+        hero_ranked = sample.get("pages_ranked", 0)
+
+        to_email = escape(sample.get("recipient_email", ""))
+        to_display = f"{hero_name} &lt;{to_email}&gt;"
+        subject = escape(draft.get("subject", ""))
+        body = draft.get("body", "").replace(chr(10), "<br>")
+    else:
+        hero_name = "Prof. Aditya Rao"
+        hero_website = "rai-lab.edu"
+        hero_intent = "Research Collaboration"
+        hero_links = 21
+        hero_relevant = 7
+        hero_ranked = 5
+        to_display = 'prof.aditya@lab.edu <span class="email-tag">RETRIEVED</span>'
+        subject = 'Re: Your recent work on <span class="highlight">multi-modal RAG pipelines</span>'
+        body = (
+            '<p>Dear Prof. Aditya,</p>'
+            '<p>I came across your group\'s work on <span class="highlight">retrieval-augmented generation for scientific literature</span>, especially the recent paper on cross-document reasoning, and it maps closely to what I am exploring.</p>'
+            '<p>Would a 20-minute conversation make sense to ask a few focused questions and see if there is common ground?</p>'
+            '<p>Best,<br>Kunal</p>'
+        )
+
     render_html(
-        """
+        f"""
         <section class="hero">
             <div class="hero-grid-bg"></div>
             <div class="hero-layout">
@@ -1519,13 +1553,13 @@ def render_landing():
                     </div>
                 </div>
                 <div class="hero-preview">
-                    <div class="preview-row"><span class="preview-label">Recipient</span><span class="preview-value">Prof. Aditya Rao</span></div>
-                    <div class="preview-row"><span class="preview-label">Website</span><span class="preview-value">rai-lab.edu</span></div>
-                    <div class="preview-row"><span class="preview-label">Intent</span><span class="preview-value">Research Collaboration</span></div>
+                    <div class="preview-row"><span class="preview-label">Recipient</span><span class="preview-value">{hero_name}</span></div>
+                    <div class="preview-row"><span class="preview-label">Website</span><span class="preview-value">{hero_website}</span></div>
+                    <div class="preview-row"><span class="preview-label">Intent</span><span class="preview-value">{hero_intent}</span></div>
                     <div class="preview-divider"></div>
-                    <div class="preview-row"><span class="preview-label">Links Found</span><span class="preview-value">21</span></div>
-                    <div class="preview-row"><span class="preview-label">Relevant</span><span class="preview-value">7</span></div>
-                    <div class="preview-row"><span class="preview-label">Ranked</span><span class="preview-value">5</span></div>
+                    <div class="preview-row"><span class="preview-label">Links Found</span><span class="preview-value">{hero_links}</span></div>
+                    <div class="preview-row"><span class="preview-label">Relevant</span><span class="preview-value">{hero_relevant}</span></div>
+                    <div class="preview-row"><span class="preview-label">Ranked</span><span class="preview-value">{hero_ranked}</span></div>
                     <div class="preview-divider"></div>
                     <div class="preview-row"><span class="preview-label">Status</span><span class="preview-value preview-ok">Draft Saved to Gmail</span></div>
                 </div>
@@ -1542,15 +1576,10 @@ def render_landing():
                     <span class="window-title">tobi - gmail draft</span>
                 </div>
                 <div class="email-body">
-                    <div class="email-field"><span class="email-field-label">from</span><span class="email-field-value">you@yourdomain.com</span></div>
-                    <div class="email-field"><span class="email-field-label">to</span><span class="email-field-value">prof.aditya@lab.edu <span class="email-tag">RETRIEVED</span></span></div>
-                    <div class="email-subject">Re: Your recent work on <span class="highlight">multi-modal RAG pipelines</span></div>
-                    <div class="email-content">
-                        <p>Dear Prof. Aditya,</p>
-                        <p>I came across your group's work on <span class="highlight">retrieval-augmented generation for scientific literature</span>, especially the recent paper on cross-document reasoning, and it maps closely to what I am exploring.</p>
-                        <p>Would a 20-minute conversation make sense to ask a few focused questions and see if there is common ground?</p>
-                        <p>Best,<br>Kunal</p>
-                    </div>
+                    <div class="email-field"><span class="email-field-label">from</span><span class="email-field-value">your@email.com</span></div>
+                    <div class="email-field"><span class="email-field-label">to</span><span class="email-field-value">{to_display}</span></div>
+                    <div class="email-subject">{subject}</div>
+                    <div class="email-content">{body}</div>
                 </div>
             </div>
         </section>
