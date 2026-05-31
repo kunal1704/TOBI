@@ -58,6 +58,7 @@ def initialize_state():
         "email_draft": None,
         "gmail_result": None,
         "outreach_history": [],
+        "workflow_status": {},
     }
 
     for key, value in defaults.items():
@@ -372,7 +373,7 @@ def apply_styles():
         }
 
         .hero {
-            padding: 7.5rem 0 6rem;
+            padding: 5.5rem 0 4rem;
             position: relative;
         }
 
@@ -399,6 +400,8 @@ def apply_styles():
                 linear-gradient(0deg, rgba(255,122,182,0.05), transparent 44%);
             border-radius: 18px;
             pointer-events: none;
+            -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+            mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
         }
 
         .hero-inner {
@@ -642,6 +645,16 @@ def apply_styles():
             margin-right: 0.6rem;
         }
 
+        .runtime-running {
+            color: var(--accent);
+            margin-right: 0.6rem;
+        }
+
+        .runtime-failed {
+            color: var(--rose);
+            margin-right: 0.6rem;
+        }
+
         .workflow-steps {
             display: flex;
             flex-direction: column;
@@ -720,6 +733,7 @@ def apply_styles():
         .section.accented,
         .draft-header {
             position: relative;
+            padding: 4.5rem 0;
         }
 
         .section-label {
@@ -886,7 +900,7 @@ def apply_styles():
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            margin-top: 3rem;
+            margin-top: 1.5rem;
         }
 
         .profile-card-header {
@@ -1306,7 +1320,7 @@ def apply_styles():
         }
 
         .draft-header {
-            padding: 2rem 0 1rem;
+            padding: 1.5rem 0 0.5rem;
         }
 
         .workflow-headline {
@@ -1659,9 +1673,14 @@ def render_landing():
 
 
 def run_retrieval_pipeline(website):
+    st.session_state.workflow_status["Website Extraction"] = "running"
     homepage_text = extract_website_text(website)
+    st.session_state.workflow_status["Website Extraction"] = "completed" if homepage_text else "failed"
+
+    st.session_state.workflow_status["Link Discovery"] = "running"
     links = get_internal_links(website)
     filtered_links = filter_relevant_links(links)
+    st.session_state.workflow_status["Link Discovery"] = "completed"
 
     page_data = []
 
@@ -1680,14 +1699,19 @@ def run_retrieval_pipeline(website):
                 "text": extracted,
             })
 
+    st.session_state.workflow_status["Semantic Ranking"] = "running"
     ranked_pages = rank_pages_semantically(page_data)
+    st.session_state.workflow_status["Semantic Ranking"] = "completed"
+
     combined_text = ""
 
     for page in ranked_pages[:SEMANTIC_TOP_K]:
         combined_text += f"\n\nPAGE: {page['url']}\n\n"
         combined_text += page["text"][:MAX_TEXT_PER_PAGE]
 
+    st.session_state.workflow_status["Profile Generation"] = "running"
     profile = extract_recipient_profile(combined_text)
+    st.session_state.workflow_status["Profile Generation"] = "completed" if profile else "failed"
 
     st.session_state.profile = profile
     st.session_state.combined_text = combined_text
@@ -1756,11 +1780,27 @@ def render_workflow():
     render_html(
         """
         <section class="draft-header">
-            <div class="eyebrow"><span class="eyebrow-dot"></span>TOBI Draft Studio</div>
-            <h1 class="workflow-headline">Generate a Gmail draft<br>from a recipient's website.</h1>
-            <p class="hero-sub">
-                Add the recipient, your goal, and the context TOBI cannot infer. One click extracts, drafts, saves to Gmail, and hands you off to review before sending.
-            </p>
+            <div class="hero-layout">
+                <div>
+                    <div class="eyebrow"><span class="eyebrow-dot"></span>TOBI Draft Studio</div>
+                    <h1 class="workflow-headline">Generate a Gmail draft<br>from a recipient's website.</h1>
+                    <p class="hero-sub">
+                        Add the recipient, your goal, and the context TOBI cannot infer. One click extracts, drafts, saves to Gmail, and hands you off to review before sending.
+                    </p>
+                </div>
+                <div class="hero-preview">
+                    <div class="preview-row"><span class="preview-label">Pipeline</span><span class="preview-value">6 stages</span></div>
+                    <div class="preview-divider"></div>
+                    <div class="preview-row"><span class="preview-label">01</span><span class="preview-value">Website Extraction</span></div>
+                    <div class="preview-row"><span class="preview-label">02</span><span class="preview-value">Link Discovery</span></div>
+                    <div class="preview-row"><span class="preview-label">03</span><span class="preview-value">Semantic Ranking</span></div>
+                    <div class="preview-row"><span class="preview-label">04</span><span class="preview-value">Profile Generation</span></div>
+                    <div class="preview-row"><span class="preview-label">05</span><span class="preview-value">Draft Creation</span></div>
+                    <div class="preview-row"><span class="preview-label">06</span><span class="preview-value">Gmail Save</span></div>
+                    <div class="preview-divider"></div>
+                    <div class="preview-row"><span class="preview-value preview-ok">→ 1 click · ~15 seconds</span></div>
+                </div>
+            </div>
         </section>
         """
     )
@@ -1829,7 +1869,7 @@ def render_workflow():
             generate_clicked = st.form_submit_button("Generate Draft")
 
         with col_right:
-            done = st.session_state.profile
+            status_map = st.session_state.get("workflow_status", {})
             pipeline_steps = [
                 "Website Extraction",
                 "Link Discovery",
@@ -1838,11 +1878,18 @@ def render_workflow():
                 "Draft Creation",
                 "Gmail Save",
             ]
-            rows = "".join(
-                f'<div class="runtime-step"><span class="{"runtime-check" if done else "runtime-pending"}">'
-                f'{"✓" if done else "○"}</span> {step}</div>'
-                for step in pipeline_steps
-            )
+            rows = ""
+            for step in pipeline_steps:
+                state = status_map.get(step, "waiting")
+                if state == "completed":
+                    icon, cls = "✓", "runtime-check"
+                elif state == "running":
+                    icon, cls = "◎", "runtime-running"
+                elif state == "failed":
+                    icon, cls = "✕", "runtime-failed"
+                else:
+                    icon, cls = "○", "runtime-pending"
+                rows += f'<div class="runtime-step"><span class="{cls}">{icon}</span> {step}</div>'
             st.markdown(f"""
             <div class="runtime-card">
                 <div class="runtime-card-header">Runtime Status</div>
@@ -1899,6 +1946,7 @@ def render_workflow():
         }
 
         progress_slot = st.empty()
+        st.session_state.workflow_status = {}
 
         with progress_slot.container():
             render_html(progress_markup(0))
@@ -1910,6 +1958,7 @@ def render_workflow():
         with progress_slot.container():
             render_html(progress_markup(1))
 
+        st.session_state.workflow_status["Draft Creation"] = "running"
         draft = generate_email_draft(
             st.session_state.profile,
             st.session_state.combined_text,
@@ -1917,6 +1966,7 @@ def render_workflow():
         )
 
         if "error" in draft:
+            st.session_state.workflow_status["Draft Creation"] = "failed"
             render_html(
                 progress_markup(
                     2,
@@ -1928,11 +1978,13 @@ def render_workflow():
             st.stop()
 
         st.session_state.email_draft = draft
+        st.session_state.workflow_status["Draft Creation"] = "completed"
 
         progress_slot.empty()
         with progress_slot.container():
             render_html(progress_markup(2))
 
+        st.session_state.workflow_status["Gmail Save"] = "running"
         gmail_result = create_gmail_draft(
             to_email=recipient_email,
             subject=draft["subject"],
@@ -1940,6 +1992,7 @@ def render_workflow():
         )
 
         st.session_state.gmail_result = gmail_result
+        st.session_state.workflow_status["Gmail Save"] = "completed"
 
         progress_slot.empty()
         with progress_slot.container():
