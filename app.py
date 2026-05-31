@@ -2135,15 +2135,51 @@ def render_success(extraction_summary=None):
         """
     )
 
-    with st.expander("Recipient intelligence"):
-        st.json(st.session_state.profile)
+    profile = st.session_state.get("profile", {})
 
-    with st.expander("Source context"):
-        st.text_area(
-            "Combined extracted context",
-            st.session_state.combined_text[:FINAL_CONTEXT_LIMIT],
-            height=320,
-            label_visibility="collapsed",
+    def fmt(val):
+        if isinstance(val, list):
+            return [str(v) for v in val if v]
+        return [str(val)] if val else []
+
+    sections = []
+
+    mapping = [
+        ("Research Interests", "Research interests"),
+        ("Current Topics", "Current topics"),
+        ("Recent Work", "Notable achievements"),
+        ("Outreach Hooks", "Personalization hooks"),
+    ]
+
+    for title, key in mapping:
+        items = fmt(profile.get(key, ""))
+        if items:
+            bullets = "".join(
+                f'<li style="color:var(--text-secondary);font-size:13px;line-height:1.7;margin-bottom:4px">{escape(i)}</li>'
+                for i in items
+            )
+            sections.append(
+                f'<div style="margin-bottom:1.2rem">'
+                f'<div style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">{title}</div>'
+                f'<ul style="margin:0;padding-left:1.2rem;list-style:disc">{bullets}</ul>'
+                f'</div>'
+            )
+
+    if sections:
+        render_html(
+            f"""
+            <div class="profile-card" style="margin-top:1.5rem">
+                <div class="profile-card-header">
+                    <div class="profile-avatar">{escape(get_initials(latest.get("recipient_name", "")))}</div>
+                    <div>
+                        <div class="profile-name">{escape(latest.get("recipient_name", ""))}</div>
+                        <div class="profile-role">{escape(latest.get("recipient_email", ""))}</div>
+                    </div>
+                    <div class="profile-source">tobi://profile</div>
+                </div>
+                {''.join(sections)}
+            </div>
+            """
         )
 
     render_outreach_board(st.session_state.outreach_history)
