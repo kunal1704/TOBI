@@ -375,6 +375,7 @@ def apply_styles():
         .hero {
             padding: 5.5rem 0 4rem;
             position: relative;
+            transition: opacity 0.35s ease;
         }
 
         .hero-grid-bg {
@@ -395,9 +396,9 @@ def apply_styles():
             position: absolute;
             inset: 0;
             background:
-                linear-gradient(110deg, rgba(200,245,66,0.07), transparent 36%),
-                linear-gradient(245deg, rgba(84,214,255,0.08), transparent 38%),
-                linear-gradient(0deg, rgba(255,122,182,0.05), transparent 44%);
+                linear-gradient(110deg, rgba(200,245,66,0.04), transparent 36%),
+                linear-gradient(245deg, rgba(84,214,255,0.04), transparent 38%),
+                linear-gradient(0deg, rgba(255,122,182,0.02), transparent 44%);
             border-radius: 18px;
             pointer-events: none;
             -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
@@ -499,13 +500,19 @@ def apply_styles():
             background: rgba(13, 17, 23, 0.6);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--border-bright);
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 1.5rem;
             min-width: 280px;
             flex-shrink: 0;
             position: relative;
             z-index: 1;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .hero-preview:hover {
+            border-color: var(--border-bright);
+            box-shadow: 0 0 30px rgba(200,245,66,0.03);
         }
 
         .hero-preview::before {
@@ -513,7 +520,7 @@ def apply_styles():
             position: absolute;
             inset: -30px;
             border-radius: 42px;
-            background: radial-gradient(ellipse 60% 50% at 50% 40%, rgba(200,245,66,0.08), rgba(84,214,255,0.04), transparent 70%);
+            background: radial-gradient(ellipse 60% 50% at 50% 40%, rgba(200,245,66,0.04), rgba(84,214,255,0.02), transparent 70%);
             filter: blur(30px);
             z-index: -1;
             pointer-events: none;
@@ -734,6 +741,7 @@ def apply_styles():
         .draft-header {
             position: relative;
             padding: 4.5rem 0;
+            transition: opacity 0.35s ease;
         }
 
         .section-label {
