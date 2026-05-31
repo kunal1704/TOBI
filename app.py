@@ -70,7 +70,10 @@ def is_try_mode():
 
 
 def render_html(markup):
-    st.markdown(dedent(markup).strip(), unsafe_allow_html=True)
+    try:
+        st.html(markup)
+    except Exception:
+        st.markdown(markup, unsafe_allow_html=True)
 
 
 def get_initials(name):
@@ -183,8 +186,9 @@ def render_outreach_board(records=None, sample=False):
         pages_ranked = record["pages_ranked"]
 
         cards.append(
-            f"""
-            <article class="outreach-card">
+            dedent(
+        f"""
+        <article class="outreach-card">
                 <div class="outreach-card-top">
                     <div class="profile-avatar compact">{initials}</div>
                     <div>
@@ -207,22 +211,27 @@ def render_outreach_board(records=None, sample=False):
                     <span>{pages_ranked} ranked</span>
                 </div>
                 <a class="gmail-link" href="{gmail_url}" target="_blank" rel="noopener">Open Gmail draft</a>
-            </article>
+        </article>
             """
+            )
         )
+
+    cards_html = "\n".join(cards)
 
     render_html(
         f"""
-        <div class="outreach-board">
+        <div class="outreach-board fade-section">
             <div class="board-heading">
                 <div>
                     <p class="section-label">Outreach Board</p>
                     <h2 class="section-headline">Preview every person you have drafted for.</h2>
                 </div>
-                <p class="section-sub">Placards summarize who TOBI contacted, why, what it found, and where to review the Gmail draft.</p>
+                <p class="section-sub">
+                    Placards summarize who TOBI contacted, why, what it found, and where to review the Gmail draft.
+                </p>
             </div>
             <div class="outreach-grid">
-                {''.join(cards)}
+                {cards_html}
             </div>
         </div>
         """
@@ -269,10 +278,11 @@ def apply_styles():
 
         .stApp {
             background:
-                linear-gradient(135deg, rgba(28, 84, 91, 0.46) 0%, rgba(8,11,15,0) 34%),
-                linear-gradient(225deg, rgba(75, 38, 100, 0.38) 0%, rgba(8,11,15,0) 31%),
-                linear-gradient(15deg, rgba(94, 62, 16, 0.30) 0%, rgba(8,11,15,0) 28%),
-                var(--bg);
+                radial-gradient(circle at 15% 20%, rgba(84,214,255,0.12), transparent 35%),
+                radial-gradient(circle at 85% 15%, rgba(155,140,255,0.12), transparent 35%),
+                radial-gradient(circle at 30% 90%, rgba(229,164,69,0.10), transparent 35%),
+                linear-gradient(180deg, #070b10 0%, #090d14 100%);
+            min-height: 100vh;
             color: var(--text-primary);
             font-family: var(--font-sans);
         }
@@ -394,6 +404,7 @@ def apply_styles():
         .hero-inner {
             position: relative;
             z-index: 1;
+            max-width: 900px;
         }
 
         .eyebrow {
@@ -421,13 +432,29 @@ def apply_styles():
             50% { opacity: 0.4; transform: scale(0.8); }
         }
 
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-section {
+            animation: fadeInUp 0.6s ease forwards;
+        }
+
         .hero-headline {
             color: var(--text-primary);
-            font-size: 4.8rem;
+            font-size: 4.0rem;
             font-weight: 300;
-            line-height: 1.08;
+            line-height: 1.2;
             letter-spacing: -0.025em;
             margin: 0 0 1.5rem;
+            max-width: 720px;
         }
 
         .hero-headline em {
@@ -437,72 +464,247 @@ def apply_styles():
 
         .hero-sub {
             color: var(--text-secondary);
-            font-size: 17px;
+            font-size: 15px;
             font-weight: 300;
             line-height: 1.75;
-            max-width: 540px;
+            max-width: 480px;
             margin: 0 0 2.4rem;
         }
 
-        .hero-meta {
+        .hero-actions {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-top: 2rem;
+        }
+
+        .hero-stat {
             color: var(--text-muted);
             font-family: var(--font-mono);
             font-size: 12px;
         }
 
-        .pipeline-bar {
+        .hero-layout {
             display: flex;
-            align-items: flex-start;
-            margin: 5rem 0 1rem;
-        }
-
-        .pipeline-step {
             align-items: center;
-            display: flex;
-            flex: 1;
-            flex-direction: column;
+            gap: 4rem;
             position: relative;
-        }
-
-        .pipeline-step:not(:last-child)::after {
-            content: '';
-            position: absolute;
-            top: 15px;
-            left: calc(50% + 12px);
-            width: calc(100% - 24px);
-            height: 1px;
-            background: linear-gradient(90deg, var(--border-bright), var(--border));
-        }
-
-        .pipeline-icon {
-            align-items: center;
-            background: var(--bg-card);
-            border: 1px solid var(--border-bright);
-            border-radius: 50%;
-            color: var(--text-muted);
-            display: flex;
-            font-family: var(--font-mono);
-            font-size: 10px;
-            height: 30px;
-            justify-content: center;
-            margin-bottom: 10px;
-            position: relative;
-            transition: border-color 0.2s, color 0.2s;
-            width: 30px;
             z-index: 1;
         }
 
-        .pipeline-step:hover .pipeline-icon {
-            border-color: var(--accent);
+        .hero-preview {
+            background: rgba(13, 17, 23, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-bright);
+            border-radius: 12px;
+            padding: 1.5rem;
+            min-width: 280px;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-preview::before {
+            content: '';
+            position: absolute;
+            inset: -30px;
+            border-radius: 42px;
+            background: radial-gradient(ellipse 60% 50% at 50% 40%, rgba(200,245,66,0.08), rgba(84,214,255,0.04), transparent 70%);
+            filter: blur(30px);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .preview-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.4rem 0;
+        }
+
+        .preview-label {
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.04em;
+        }
+
+        .preview-value {
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 12px;
+        }
+
+        .preview-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 0.6rem 0;
+        }
+
+        .preview-ok {
             color: var(--accent);
         }
 
-        .pipeline-label {
+        .runtime-card {
+            background: rgba(13, 17, 23, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: all .25s ease;
+        }
+
+        .runtime-card:hover {
+            transform: translateY(-6px);
+            border-color: var(--border-bright);
+        }
+
+        .workspace-card {
+            background: rgba(13, 17, 23, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all .25s ease;
+        }
+
+        .workspace-card:hover {
+            transform: translateY(-6px);
+            border-color: var(--border-bright);
+        }
+
+        .workspace-card-body {
+            padding: 1.5rem;
+        }
+
+        .workspace-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            padding: 0.75rem 0;
+        }
+
+        .workspace-stat-item {
+            padding: 0.75rem 0.5rem;
+            text-align: center;
+        }
+
+        .workspace-stat-item + .workspace-stat-item {
+            border-left: 1px solid var(--border);
+        }
+
+        .workspace-stat-num {
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            font-size: 1.6rem;
+            font-weight: 300;
+            letter-spacing: -0.03em;
+        }
+
+        .workspace-stat-num span {
+            color: var(--accent);
+        }
+
+        .workspace-stat-label {
             color: var(--text-muted);
             font-family: var(--font-mono);
-            font-size: 10px;
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            margin-top: 4px;
+        }
+
+        .runtime-card-header {
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+        }
+
+        .runtime-step {
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            padding: 0.35rem 0;
+            line-height: 1.6;
+        }
+
+        .runtime-check {
+            color: var(--accent);
+            margin-right: 0.6rem;
+        }
+
+        .runtime-pending {
+            color: var(--text-muted);
+            margin-right: 0.6rem;
+        }
+
+        .workflow-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            margin-top: 3rem;
+        }
+
+        .workflow-step {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.5rem 0;
+            position: relative;
+        }
+
+        .workflow-step:not(:last-child) {
+            padding-bottom: 1.25rem;
+        }
+
+        .workflow-step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 23px;
+            top: 54px;
+            bottom: 0;
+            width: 1px;
+            background: linear-gradient(180deg, var(--border-bright), transparent);
+        }
+
+        .workflow-marker {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            border: 1px solid var(--border-bright);
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 1;
+            transition: border-color 0.2s;
+        }
+
+        .workflow-marker span {
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-size: 11px;
             letter-spacing: 0.04em;
-            text-align: center;
+        }
+
+        .workflow-step:hover .workflow-marker {
+            border-color: var(--accent);
+        }
+
+        .workflow-step:hover .workflow-marker span {
+            color: var(--accent);
+        }
+
+        .workflow-label {
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 400;
         }
 
         .divider {
@@ -557,8 +759,23 @@ def apply_styles():
             overflow: hidden;
         }
 
+        .profile-card {
+            transition: all .25s ease;
+        }
+
+        .profile-card:hover {
+            transform: translateY(-6px);
+            border-color: var(--border-bright);
+        }
+
         .email-demo {
             margin-top: 3rem;
+            transition: all .25s ease;
+        }
+
+        .email-demo:hover {
+            transform: translateY(-6px);
+            border-color: var(--border-bright);
         }
 
         .window-bar,
@@ -669,7 +886,7 @@ def apply_styles():
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            margin-top: 2rem;
+            margin-top: 3rem;
         }
 
         .profile-card-header {
@@ -736,6 +953,12 @@ def apply_styles():
 
         .terminal {
             background: #050709;
+            transition: all .25s ease;
+        }
+
+        .terminal:hover {
+            transform: translateY(-6px);
+            border-color: var(--border-bright);
         }
 
         .outreach-board {
@@ -757,15 +980,20 @@ def apply_styles():
         }
 
         .outreach-card {
-            background:
-                linear-gradient(155deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)),
-                var(--bg-card);
-            border: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+            border: 1px solid rgba(255,255,255,0.08);
             border-radius: 14px;
             min-height: 360px;
             padding: 1.25rem;
             position: relative;
             overflow: hidden;
+            transition: transform .2s ease, border-color .2s ease;
+        }
+
+        .outreach-card:hover {
+            transform: translateY(-6px);
+            border-color: var(--border-bright);
         }
 
         .outreach-card::before {
@@ -986,7 +1214,7 @@ def apply_styles():
             border-radius: 12px;
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            margin-top: 4rem;
+            margin-top: 3rem;
             overflow: hidden;
         }
 
@@ -995,11 +1223,13 @@ def apply_styles():
             border-bottom: 1px solid var(--border);
             border-right: 1px solid var(--border);
             padding: 2rem;
-            transition: background 0.2s;
+            transition: all .25s ease;
         }
 
         .usecase-card:hover {
             background: var(--bg-subtle);
+            transform: translateY(-6px);
+            border-color: var(--border-bright);
         }
 
         .usecase-num {
@@ -1029,7 +1259,7 @@ def apply_styles():
             border-radius: 10px;
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            margin-top: 4rem;
+            margin-top: 3rem;
             overflow: hidden;
         }
 
@@ -1076,7 +1306,11 @@ def apply_styles():
         }
 
         .draft-header {
-            padding: 5rem 0 2rem;
+            padding: 2rem 0 1rem;
+        }
+
+        .workflow-headline {
+            font-size: 3rem;
         }
 
         .draft-panel {
@@ -1087,7 +1321,7 @@ def apply_styles():
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 2rem;
+            padding: 1.5rem;
         }
 
         .stTextInput label,
@@ -1167,7 +1401,7 @@ def apply_styles():
         [data-testid="stExpander"] {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 10px;
+            border-radius: 12px;
         }
 
         @media (max-width: 768px) {
@@ -1188,7 +1422,6 @@ def apply_styles():
                 font-size: 3rem;
             }
 
-            .pipeline-bar,
             .split,
             .usecase-grid,
             .stat-row,
@@ -1198,16 +1431,6 @@ def apply_styles():
                 display: grid;
                 grid-template-columns: 1fr;
                 gap: 1rem;
-            }
-
-            .pipeline-step {
-                align-items: flex-start;
-                flex-direction: row;
-                gap: 12px;
-            }
-
-            .pipeline-step:not(:last-child)::after {
-                display: none;
             }
 
             .split.reverse {
@@ -1261,30 +1484,41 @@ def render_landing():
         """
         <section class="hero">
             <div class="hero-grid-bg"></div>
-            <div class="hero-inner">
-                <div class="eyebrow"><span class="eyebrow-dot"></span>Agentic AI - RAG - Personalization</div>
-                <h1 class="hero-headline">
-                    Cold emails that<br>
-                    actually sound like<br>
-                    you did <em>your homework.</em>
-                </h1>
-                <p class="hero-sub">
-                    TOBI reads their website, understands their work, and writes outreach so specific it feels handcrafted at scale.
-                </p>
-                <div class="hero-meta">No account required - open-source - saves to Gmail drafts</div>
-
-                <div class="pipeline-bar">
-                    <div class="pipeline-step"><div class="pipeline-icon">01</div><div class="pipeline-label">Website<br>Extraction</div></div>
-                    <div class="pipeline-step"><div class="pipeline-icon">02</div><div class="pipeline-label">Link<br>Discovery</div></div>
-                    <div class="pipeline-step"><div class="pipeline-icon">03</div><div class="pipeline-label">Semantic<br>Ranking</div></div>
-                    <div class="pipeline-step"><div class="pipeline-icon">04</div><div class="pipeline-label">LLM<br>Profile</div></div>
-                    <div class="pipeline-step"><div class="pipeline-icon">05</div><div class="pipeline-label">Email<br>Draft</div></div>
-                    <div class="pipeline-step"><div class="pipeline-icon">06</div><div class="pipeline-label">Gmail<br>Save</div></div>
+            <div class="hero-layout">
+                <div class="hero-inner">
+                    <div class="eyebrow"><span class="eyebrow-dot"></span>Agentic AI - RAG - Personalization</div>
+                    <h1 class="hero-headline">
+                        Cold emails that<br>
+                        actually sound like<br>
+                        you did <em>your homework.</em>
+                    </h1>
+                    <p class="hero-sub">
+                        TOBI reads their website, understands their work, and writes outreach so specific it feels handcrafted at scale.
+                    </p>
+                    <div class="hero-actions">
+                        <a href="?mode=try" class="btn-primary">
+                            Generate Draft
+                        </a>
+                        <span class="hero-stat">
+                            URL &rarr; Gmail draft in ~15 seconds
+                        </span>
+                    </div>
+                </div>
+                <div class="hero-preview">
+                    <div class="preview-row"><span class="preview-label">Recipient</span><span class="preview-value">Prof. Aditya Rao</span></div>
+                    <div class="preview-row"><span class="preview-label">Website</span><span class="preview-value">rai-lab.edu</span></div>
+                    <div class="preview-row"><span class="preview-label">Intent</span><span class="preview-value">Research Collaboration</span></div>
+                    <div class="preview-divider"></div>
+                    <div class="preview-row"><span class="preview-label">Links Found</span><span class="preview-value">21</span></div>
+                    <div class="preview-row"><span class="preview-label">Relevant</span><span class="preview-value">7</span></div>
+                    <div class="preview-row"><span class="preview-label">Ranked</span><span class="preview-value">5</span></div>
+                    <div class="preview-divider"></div>
+                    <div class="preview-row"><span class="preview-label">Status</span><span class="preview-value preview-ok">Draft Saved to Gmail</span></div>
                 </div>
             </div>
         </section>
         <div class="divider"></div>
-        <section class="section">
+        <section class="section fade-section">
             <p class="section-label">Output Example</p>
             <h2 class="section-headline">From URL to inbox-ready copy.</h2>
             <p class="section-sub">Paste a prospect's website. TOBI reads every relevant page, builds an intelligence profile, then drafts.</p>
@@ -1315,7 +1549,40 @@ def render_landing():
     render_html(
         """
         <div class="divider"></div>
-        <section class="section accented">
+        <section class="section fade-section">
+            <p class="section-label">How TOBI Thinks</p>
+            <h2 class="section-headline">From URL to email in five steps.</h2>
+            <p class="section-sub">Every outreach begins as a URL and passes through TOBI's research pipeline before a single word is written.</p>
+            <div class="workflow-steps">
+                <div class="workflow-step">
+                    <div class="workflow-marker"><span>01</span></div>
+                    <div class="workflow-label">Website</div>
+                </div>
+                <div class="workflow-step">
+                    <div class="workflow-marker"><span>02</span></div>
+                    <div class="workflow-label">Links Discovered</div>
+                </div>
+                <div class="workflow-step">
+                    <div class="workflow-marker"><span>03</span></div>
+                    <div class="workflow-label">Relevant Pages Ranked</div>
+                </div>
+                <div class="workflow-step">
+                    <div class="workflow-marker"><span>04</span></div>
+                    <div class="workflow-label">Recipient Profile Generated</div>
+                </div>
+                <div class="workflow-step">
+                    <div class="workflow-marker"><span>05</span></div>
+                    <div class="workflow-label">Personalized Email Draft</div>
+                </div>
+            </div>
+        </section>
+        """
+    )
+
+    render_html(
+        """
+        <div class="divider"></div>
+        <section class="section accented fade-section">
             <div class="split">
                 <div>
                     <p class="section-label">Intelligence Layer</p>
@@ -1346,7 +1613,7 @@ def render_landing():
             </div>
         </section>
         <div class="divider"></div>
-        <section class="section">
+        <section class="section fade-section">
             <div class="split reverse">
                 <div>
                     <p class="section-label">Under the Hood</p>
@@ -1368,21 +1635,19 @@ def render_landing():
             </div>
         </section>
         <div class="divider"></div>
-        <section class="section">
+        <section class="section fade-section">
             <p class="section-label">Use Cases</p>
             <h2 class="section-headline">Built for anyone who reaches out for a living.</h2>
             <div class="usecase-grid">
                 <div class="usecase-card"><div class="usecase-num">01 / ACADEMIA</div><div class="usecase-title">Research Outreach</div><div class="usecase-desc">Email professors with specific references to their publications and labs.</div></div>
-                <div class="usecase-card"><div class="usecase-num">02 / STARTUPS</div><div class="usecase-title">Investor Personalization</div><div class="usecase-desc">Reference exact portfolio and thesis signals before asking for time.</div></div>
-                <div class="usecase-card"><div class="usecase-num">03 / SALES</div><div class="usecase-title">Prospect Intelligence</div><div class="usecase-desc">Turn a company URL into a buyer profile before the first touchpoint.</div></div>
-                <div class="usecase-card"><div class="usecase-num">04 / RECRUITING</div><div class="usecase-title">Candidate Outreach</div><div class="usecase-desc">Reference open-source work, blog posts, or talks without sounding generic.</div></div>
-                <div class="usecase-card"><div class="usecase-num">05 / BD</div><div class="usecase-title">Partnership Discovery</div><div class="usecase-desc">Identify product overlap and strategic fit before writing a single word.</div></div>
-                <div class="usecase-card"><div class="usecase-num">06 / ANYONE</div><div class="usecase-title">Cold to Warm</div><div class="usecase-desc">Make recipients feel like you spent an hour understanding their work.</div></div>
+                <div class="usecase-card"><div class="usecase-num">02 / STARTUPS</div><div class="usecase-title">Founder Outreach</div><div class="usecase-desc">Reference exact portfolio and thesis signals before asking for time.</div></div>
+                <div class="usecase-card"><div class="usecase-num">03 / RECRUITING</div><div class="usecase-title">Recruiting</div><div class="usecase-desc">Reference open-source work, blog posts, or talks without sounding generic.</div></div>
+                <div class="usecase-card"><div class="usecase-num">04 / BD</div><div class="usecase-title">Partnership Discovery</div><div class="usecase-desc">Identify product overlap and strategic fit before writing a single word.</div></div>
             </div>
             <div class="stat-row">
-                <div class="stat-item"><div class="stat-num"><span>8</span>-step</div><div class="stat-label">Autonomous pipeline</div></div>
-                <div class="stat-item"><div class="stat-num"><span>&lt;15</span>s</div><div class="stat-label">URL to draft</div></div>
-                <div class="stat-item"><div class="stat-num"><span>0</span> templates</div><div class="stat-label">Every email unique</div></div>
+                <div class="stat-item"><div class="stat-num"><span>14</span>+</div><div class="stat-label">Pages Analyzed</div></div>
+                <div class="stat-item"><div class="stat-num"><span>7</span>+</div><div class="stat-label">Signals Extracted</div></div>
+                <div class="stat-item"><div class="stat-num"><span>&lt;15</span>s</div><div class="stat-label">URL &rarr; Draft</div></div>
             </div>
         </section>
         <div class="tobi-footer">
@@ -1492,7 +1757,7 @@ def render_workflow():
         """
         <section class="draft-header">
             <div class="eyebrow"><span class="eyebrow-dot"></span>TOBI Draft Studio</div>
-            <h1 class="hero-headline">Generate a Gmail draft<br>from a recipient's website.</h1>
+            <h1 class="workflow-headline">Generate a Gmail draft<br>from a recipient's website.</h1>
             <p class="hero-sub">
                 Add the recipient, your goal, and the context TOBI cannot infer. One click extracts, drafts, saves to Gmail, and hands you off to review before sending.
             </p>
@@ -1500,66 +1765,108 @@ def render_workflow():
         """
     )
 
-    render_outreach_board(st.session_state.outreach_history)
-
     with st.form("draft_form"):
-        st.markdown("#### Recipient")
-        col1, col2 = st.columns(2)
+        col_left, col_right = st.columns([3, 2])
 
-        with col1:
-            recipient_name = st.text_input("Recipient Name")
-            recipient_email = st.text_input("Recipient Email")
+        with col_left:
+            with st.expander("Recipient", expanded=True):
+                col1, col2 = st.columns(2)
 
-        with col2:
-            website = st.text_input("Website URL")
-            intent = st.selectbox("Outreach Intent", INTENTS)
+                with col1:
+                    recipient_name = st.text_input("Recipient Name")
+                    recipient_email = st.text_input("Recipient Email")
 
-        st.markdown("#### Sender")
-        col3, col4 = st.columns(2)
+                with col2:
+                    website = st.text_input("Website URL")
+                    intent = st.selectbox("Outreach Intent", INTENTS)
 
-        with col3:
-            sender_name = st.text_input("Your Name")
-            sender_affiliation = st.text_input("Affiliation (if any)")
-
-        with col4:
-            sender_background = st.text_area(
-                "Relevant Background",
-                placeholder="A short note about your work, project, research interest, or reason this outreach matters.",
+            outreach_goal = st.text_area(
+                "Outreach Goal",
+                placeholder="What should this email accomplish?",
                 height=110,
             )
 
-        st.markdown("#### Draft Preferences")
-        col5, col6, col7 = st.columns(3)
+            with st.expander("Draft Preferences", expanded=False):
+                col5, col6, col7 = st.columns(3)
 
-        with col5:
-            tone = st.selectbox("Tone", TONES)
+                with col5:
+                    tone = st.selectbox("Tone", TONES)
 
-        with col6:
-            length = st.selectbox("Email Length", LENGTHS)
+                with col6:
+                    length = st.selectbox("Email Length", LENGTHS)
 
-        with col7:
-            call_to_action = st.text_input(
-                "Call to Action",
-                value="Would you be open to a short conversation?",
+                with col7:
+                    call_to_action = st.text_input(
+                        "Call to Action",
+                        value="Would you be open to a short conversation?",
+                    )
+
+            with st.expander("Sender", expanded=False):
+                col3, col4 = st.columns(2)
+
+                with col3:
+                    sender_name = st.text_input("Your Name")
+                    sender_affiliation = st.text_input("Affiliation (if any)")
+
+                with col4:
+                    sender_background = st.text_area(
+                        "Relevant Background",
+                        placeholder="A short note about your work, project, research interest, or reason this outreach matters.",
+                        height=110,
+                    )
+
+            extra_context = st.text_area(
+                "Additional Context",
+                placeholder="Shared connections, timing, specific projects, constraints, or anything TOBI should mention.",
+                height=100,
+            )
+            avoid = st.text_area(
+                "Things to Avoid",
+                placeholder="Optional: topics, claims, tone, or wording you do not want in the email.",
+                height=85,
             )
 
-        outreach_goal = st.text_area(
-            "Outreach Goal",
-            placeholder="What should this email accomplish?",
-            height=110,
-        )
-        extra_context = st.text_area(
-            "Additional Context",
-            placeholder="Shared connections, timing, specific projects, constraints, or anything TOBI should mention.",
-            height=100,
-        )
-        avoid = st.text_area(
-            "Things to Avoid",
-            placeholder="Optional: topics, claims, tone, or wording you do not want in the email.",
-            height=85,
-        )
+            generate_clicked = st.form_submit_button("Generate Draft")
 
-        generate_clicked = st.form_submit_button("Generate Draft")
+        with col_right:
+            done = st.session_state.profile
+            pipeline_steps = [
+                "Website Extraction",
+                "Link Discovery",
+                "Semantic Ranking",
+                "Profile Generation",
+                "Draft Creation",
+                "Gmail Save",
+            ]
+            rows = "".join(
+                f'<div class="runtime-step"><span class="{"runtime-check" if done else "runtime-pending"}">'
+                f'{"✓" if done else "○"}</span> {step}</div>'
+                for step in pipeline_steps
+            )
+            st.markdown(f"""
+            <div class="runtime-card">
+                <div class="runtime-card-header">Runtime Status</div>
+                {rows}
+            </div>
+            """, unsafe_allow_html=True)
+
+            summary = st.session_state.get("extraction_summary")
+            if done and summary:
+                st.markdown(f"""
+                <div class="runtime-card" style="margin-top:1rem">
+                    <div class="runtime-card-header">Signals Identified</div>
+                    <div class="preview-row"><span class="preview-label">Pages Ranked</span><span class="preview-value">{summary["pages_ranked"]}</span></div>
+                    <div class="preview-row"><span class="preview-label">Relevant Links</span><span class="preview-value">{summary["relevant_links"]}</span></div>
+                    <div class="preview-row"><span class="preview-label">Links Found</span><span class="preview-value">{summary["links_found"]}</span></div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="runtime-card" style="margin-top:1rem">
+                    <div class="runtime-card-header">Signals Identified</div>
+                    <div class="runtime-step" style="color:var(--text-muted)">Waiting for website analysis...</div>
+                </div>
+                """, unsafe_allow_html=True)
 
     if generate_clicked:
         required_fields = {
@@ -1592,12 +1899,17 @@ def render_workflow():
         }
 
         progress_slot = st.empty()
-        progress_slot.markdown(progress_markup(0), unsafe_allow_html=True)
 
-        progress_slot.markdown(progress_markup(1), unsafe_allow_html=True)
+        with progress_slot.container():
+            render_html(progress_markup(0))
+
         extraction_summary = run_retrieval_pipeline(website)
+        st.session_state.extraction_summary = extraction_summary
 
-        progress_slot.markdown(progress_markup(2), unsafe_allow_html=True)
+        progress_slot.empty()
+        with progress_slot.container():
+            render_html(progress_markup(1))
+
         draft = generate_email_draft(
             st.session_state.profile,
             st.session_state.combined_text,
@@ -1605,29 +1917,46 @@ def render_workflow():
         )
 
         if "error" in draft:
-            progress_slot.markdown(
-                progress_markup(2, error="TOBI could not format the generated draft."),
-                unsafe_allow_html=True,
+            render_html(
+                progress_markup(
+                    2,
+                    error="TOBI could not format the generated draft."
+                )
             )
+
             st.session_state.email_draft = draft
             st.stop()
 
         st.session_state.email_draft = draft
 
-        progress_slot.markdown(progress_markup(3), unsafe_allow_html=True)
+        progress_slot.empty()
+        with progress_slot.container():
+            render_html(progress_markup(2))
+
         gmail_result = create_gmail_draft(
             to_email=recipient_email,
             subject=draft["subject"],
             body=draft["body"],
         )
+
         st.session_state.gmail_result = gmail_result
 
-        add_outreach_record(details, draft, extraction_summary, gmail_result)
+        progress_slot.empty()
+        with progress_slot.container():
+            render_html(progress_markup(3))
 
-        progress_slot.markdown(progress_markup(4), unsafe_allow_html=True)
+        add_outreach_record(
+            details,
+            draft,
+            extraction_summary,
+            gmail_result,
+        )
+
+        progress_slot.empty()
+        with progress_slot.container():
+            render_html(progress_markup(4))
 
         render_success(extraction_summary)
-
     elif st.session_state.email_draft:
         render_success()
 
@@ -1636,19 +1965,40 @@ def render_success(extraction_summary=None):
     draft = st.session_state.email_draft
     gmail_url = st.session_state.gmail_result.get("gmail_url", GMAIL_DRAFTS_URL)
 
+    latest = st.session_state.outreach_history[0] if st.session_state.outreach_history else {}
+
     render_html(
         f"""
-        <div class="success-panel">
-            <p class="section-label">Saved to Gmail</p>
-            <h2 class="section-headline">Your draft is ready for review.</h2>
-            <p class="section-sub">
-                TOBI placed the email in Gmail drafts. 
-                <a class="gmail-link" href="{gmail_url}" target="_blank" rel="noopener">Open Gmail drafts</a>
-                and click send when you are happy with it.
-            </p>
+        <div class="runtime-card">
+            <div class="runtime-card-header">✓ Draft Saved</div>
+            {f'<div class="preview-row"><span class="preview-label">Recipient</span><span class="preview-value">{latest["recipient_name"]}</span></div>' if latest.get("recipient_name") else ''}
+            {f'<div class="preview-row"><span class="preview-label">Website</span><span class="preview-value">{latest["website"]}</span></div>' if latest.get("website") else ''}
+            {f'<div class="preview-row"><span class="preview-label">Generated</span><span class="preview-value">{latest["created_at"]}</span></div>' if latest.get("created_at") else ''}
         </div>
         """
     )
+
+    if extraction_summary:
+        render_html(
+            f"""
+            <div class="workspace-card" style="margin-top:1rem;margin-bottom:2rem">
+                <div class="workspace-stat-grid">
+                    <div class="workspace-stat-item">
+                        <div class="workspace-stat-num"><span>{extraction_summary["links_found"]}</span></div>
+                        <div class="workspace-stat-label">Links Found</div>
+                    </div>
+                    <div class="workspace-stat-item">
+                        <div class="workspace-stat-num"><span>{extraction_summary["relevant_links"]}</span></div>
+                        <div class="workspace-stat-label">Relevant Links</div>
+                    </div>
+                    <div class="workspace-stat-item">
+                        <div class="workspace-stat-num"><span>{extraction_summary["pages_ranked"]}</span></div>
+                        <div class="workspace-stat-label">Pages Ranked</div>
+                    </div>
+                </div>
+            </div>
+            """
+        )
 
     components.html(
         f"""
@@ -1661,17 +2011,29 @@ def render_success(extraction_summary=None):
         height=0,
     )
 
-    st.markdown('<div class="draft-panel">', unsafe_allow_html=True)
-    st.markdown("#### Draft Preview")
-    st.text_input("Subject", value=draft.get("subject", ""), disabled=True)
-    st.text_area("Email Body", value=draft.get("body", ""), height=280, disabled=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    to_name = latest.get("recipient_name", "")
+    to_email = latest.get("recipient_email", "")
+    to_display = f"{to_name} <{to_email}>" if to_name and to_email else (to_name or to_email or "Recipient")
 
-    if extraction_summary:
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Links Found", extraction_summary["links_found"])
-        col2.metric("Relevant Links", extraction_summary["relevant_links"])
-        col3.metric("Pages Ranked", extraction_summary["pages_ranked"])
+    render_html(
+        f"""
+        <div class="workspace-card">
+            <div class="window-bar">
+                <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+                <span class="window-title">tobi - gmail draft</span>
+            </div>
+            <div class="workspace-card-body">
+                <div class="email-field"><span class="email-field-label">from</span><span class="email-field-value">your@email.com</span></div>
+                <div class="email-field"><span class="email-field-label">to</span><span class="email-field-value">{to_display}</span></div>
+                <div class="email-subject">{draft.get("subject", "")}</div>
+                <div class="email-content">{draft.get("body", "").replace(chr(10), "<br>")}</div>
+                <div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:1.5rem;text-align:center">
+                    <a class="gmail-link" href="{gmail_url}" target="_blank" rel="noopener">Open Gmail Draft →</a>
+                </div>
+            </div>
+        </div>
+        """
+    )
 
     with st.expander("Recipient intelligence"):
         st.json(st.session_state.profile)
