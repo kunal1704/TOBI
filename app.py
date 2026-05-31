@@ -1,3 +1,7 @@
+from datetime import datetime
+from html import escape
+from textwrap import dedent
+
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -53,6 +57,7 @@ def initialize_state():
         "ranked_pages": [],
         "email_draft": None,
         "gmail_result": None,
+        "outreach_history": [],
     }
 
     for key, value in defaults.items():
@@ -64,8 +69,168 @@ def is_try_mode():
     return st.query_params.get("mode") == "try"
 
 
+def render_html(markup):
+    st.markdown(dedent(markup).strip(), unsafe_allow_html=True)
+
+
+def get_initials(name):
+    parts = [part for part in name.strip().split() if part]
+
+    if not parts:
+        return "TO"
+
+    return "".join(part[0] for part in parts[:2]).upper()
+
+
+def add_outreach_record(details, draft, extraction_summary, gmail_result):
+    record = {
+        "recipient_name": details["recipient_name"],
+        "recipient_email": details["recipient_email"],
+        "website": details["website"],
+        "intent": details["intent"],
+        "tone": details["tone"],
+        "goal": details["outreach_goal"],
+        "subject": draft.get("subject", ""),
+        "gmail_url": gmail_result.get("gmail_url", GMAIL_DRAFTS_URL),
+        "links_found": extraction_summary["links_found"],
+        "relevant_links": extraction_summary["relevant_links"],
+        "pages_ranked": extraction_summary["pages_ranked"],
+        "created_at": datetime.now().strftime("%d %b, %I:%M %p"),
+    }
+
+    st.session_state.outreach_history = [
+        record,
+        *st.session_state.outreach_history[:11],
+    ]
+
+
+def render_outreach_board(records=None, sample=False):
+    board_records = records or []
+
+    if sample:
+        board_records = [
+            {
+                "recipient_name": "Sarah Kim",
+                "recipient_email": "sarah@infralabs.ai",
+                "website": "sarahkim.dev",
+                "intent": "Research collaboration",
+                "tone": "Direct",
+                "goal": "Ask about inference optimization lessons for edge LLM deployment.",
+                "subject": "Edge inference notes and possible overlap",
+                "gmail_url": "#",
+                "links_found": 14,
+                "relevant_links": 5,
+                "pages_ranked": 4,
+                "created_at": "Preview",
+            },
+            {
+                "recipient_name": "Prof. Aditya Rao",
+                "recipient_email": "aditya@lab.edu",
+                "website": "rai-lab.edu",
+                "intent": "Guidance or mentorship",
+                "tone": "Research-Oriented",
+                "goal": "Request focused guidance on multi-modal RAG research directions.",
+                "subject": "Question on your multi-modal RAG work",
+                "gmail_url": "#",
+                "links_found": 21,
+                "relevant_links": 7,
+                "pages_ranked": 5,
+                "created_at": "Preview",
+            },
+            {
+                "recipient_name": "Maya Chen",
+                "recipient_email": "maya@northstar.vc",
+                "website": "northstar.vc",
+                "intent": "Founder or investor outreach",
+                "tone": "Polished",
+                "goal": "Reference thesis fit and request feedback on TOBI's early direction.",
+                "subject": "TOBI and your AI workflow thesis",
+                "gmail_url": "#",
+                "links_found": 11,
+                "relevant_links": 4,
+                "pages_ranked": 3,
+                "created_at": "Preview",
+            },
+        ]
+
+    if not board_records:
+        render_html(
+            """
+            <div class="empty-board">
+                <p class="section-label">Outreach Board</p>
+                <h2 class="section-headline">Generated drafts will appear here.</h2>
+                <p class="section-sub">Once you create Gmail drafts, TOBI shows session placards with recipient, intent, subject, retrieval depth, and review link.</p>
+            </div>
+            """
+        )
+        return
+
+    cards = []
+
+    for record in board_records:
+        initials = escape(get_initials(record["recipient_name"]))
+        name = escape(record["recipient_name"])
+        email = escape(record["recipient_email"])
+        website = escape(record["website"])
+        intent = escape(record["intent"])
+        tone = escape(record["tone"])
+        goal = escape(record["goal"])
+        subject = escape(record["subject"])
+        created_at = escape(record["created_at"])
+        gmail_url = escape(record["gmail_url"])
+        links_found = record["links_found"]
+        relevant_links = record["relevant_links"]
+        pages_ranked = record["pages_ranked"]
+
+        cards.append(
+            f"""
+            <article class="outreach-card">
+                <div class="outreach-card-top">
+                    <div class="profile-avatar compact">{initials}</div>
+                    <div>
+                        <div class="profile-name">{name}</div>
+                        <div class="profile-role">{email}</div>
+                    </div>
+                    <span class="status-pill">Gmail draft</span>
+                </div>
+                <div class="outreach-subject">{subject}</div>
+                <div class="outreach-goal">{goal}</div>
+                <div class="outreach-meta-grid">
+                    <div><span>Intent</span>{intent}</div>
+                    <div><span>Tone</span>{tone}</div>
+                    <div><span>Source</span>{website}</div>
+                    <div><span>Created</span>{created_at}</div>
+                </div>
+                <div class="retrieval-strip">
+                    <span>{links_found} links</span>
+                    <span>{relevant_links} relevant</span>
+                    <span>{pages_ranked} ranked</span>
+                </div>
+                <a class="gmail-link" href="{gmail_url}" target="_blank" rel="noopener">Open Gmail draft</a>
+            </article>
+            """
+        )
+
+    render_html(
+        f"""
+        <div class="outreach-board">
+            <div class="board-heading">
+                <div>
+                    <p class="section-label">Outreach Board</p>
+                    <h2 class="section-headline">Preview every person you have drafted for.</h2>
+                </div>
+                <p class="section-sub">Placards summarize who TOBI contacted, why, what it found, and where to review the Gmail draft.</p>
+            </div>
+            <div class="outreach-grid">
+                {''.join(cards)}
+            </div>
+        </div>
+        """
+    )
+
+
 def apply_styles():
-    st.markdown(
+    render_html(
         """
         <style>
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap');
@@ -81,6 +246,9 @@ def apply_styles():
             --text-muted: #4a5268;
             --accent: #c8f542;
             --accent-dim: rgba(200,245,66,0.12);
+            --violet: #9b8cff;
+            --cyan: #54d6ff;
+            --rose: #ff7ab6;
             --blue: #7dc4e4;
             --amber: #e5a445;
             --font-sans: 'Sora', sans-serif;
@@ -100,7 +268,11 @@ def apply_styles():
         }
 
         .stApp {
-            background: var(--bg);
+            background:
+                linear-gradient(135deg, rgba(28, 84, 91, 0.46) 0%, rgba(8,11,15,0) 34%),
+                linear-gradient(225deg, rgba(75, 38, 100, 0.38) 0%, rgba(8,11,15,0) 31%),
+                linear-gradient(15deg, rgba(94, 62, 16, 0.30) 0%, rgba(8,11,15,0) 28%),
+                var(--bg);
             color: var(--text-primary);
             font-family: var(--font-sans);
         }
@@ -203,6 +375,20 @@ def apply_styles():
             background-size: 60px 60px;
             mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 20%, transparent 100%);
             -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 20%, transparent 100%);
+        }
+
+        .hero::before,
+        .section.accented::before,
+        .draft-header::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(110deg, rgba(200,245,66,0.07), transparent 36%),
+                linear-gradient(245deg, rgba(84,214,255,0.08), transparent 38%),
+                linear-gradient(0deg, rgba(255,122,182,0.05), transparent 44%);
+            border-radius: 18px;
+            pointer-events: none;
         }
 
         .hero-inner {
@@ -329,6 +515,11 @@ def apply_styles():
             padding: 6rem 0;
         }
 
+        .section.accented,
+        .draft-header {
+            position: relative;
+        }
+
         .section-label {
             color: var(--text-muted);
             font-family: var(--font-mono);
@@ -438,7 +629,7 @@ def apply_styles():
         }
 
         .highlight {
-            background: var(--accent-dim);
+            background: linear-gradient(90deg, rgba(200,245,66,0.16), rgba(84,214,255,0.10));
             border-radius: 3px;
             color: var(--accent);
             font-family: var(--font-mono);
@@ -492,7 +683,7 @@ def apply_styles():
 
         .profile-avatar {
             align-items: center;
-            background: #151d2a;
+            background: linear-gradient(135deg, #151d2a, #1e3145);
             border: 1px solid var(--border-bright);
             border-radius: 10px;
             color: var(--text-secondary);
@@ -545,6 +736,237 @@ def apply_styles():
 
         .terminal {
             background: #050709;
+        }
+
+        .outreach-board {
+            padding: 6rem 0;
+        }
+
+        .board-heading {
+            align-items: end;
+            display: grid;
+            gap: 1.5rem;
+            grid-template-columns: 1.1fr 0.9fr;
+            margin-bottom: 2rem;
+        }
+
+        .outreach-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .outreach-card {
+            background:
+                linear-gradient(155deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)),
+                var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            min-height: 360px;
+            padding: 1.25rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .outreach-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(200,245,66,0.12), transparent 34%, rgba(84,214,255,0.08));
+            opacity: 0.55;
+            pointer-events: none;
+        }
+
+        .outreach-card > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .outreach-card-top {
+            align-items: center;
+            display: flex;
+            gap: 12px;
+            margin-bottom: 1.2rem;
+        }
+
+        .profile-avatar.compact {
+            border-radius: 12px;
+            height: 44px;
+            width: 44px;
+        }
+
+        .status-pill {
+            background: rgba(200,245,66,0.10);
+            border: 1px solid rgba(200,245,66,0.22);
+            border-radius: 999px;
+            color: var(--accent);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            margin-left: auto;
+            padding: 4px 8px;
+            white-space: nowrap;
+        }
+
+        .outreach-subject {
+            color: var(--text-primary);
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 1.45;
+            margin-bottom: 0.8rem;
+        }
+
+        .outreach-goal {
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.65;
+            min-height: 64px;
+            margin-bottom: 1.2rem;
+        }
+
+        .outreach-meta-grid {
+            display: grid;
+            gap: 0.7rem;
+            grid-template-columns: 1fr 1fr;
+            margin-bottom: 1rem;
+        }
+
+        .outreach-meta-grid div {
+            color: var(--text-secondary);
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .outreach-meta-grid span {
+            color: var(--text-muted);
+            display: block;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            letter-spacing: 0.08em;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+        }
+
+        .retrieval-strip {
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            color: var(--text-muted);
+            display: flex;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            justify-content: space-between;
+            margin: 1rem 0;
+            padding: 0.7rem 0;
+        }
+
+        .empty-board {
+            background: var(--bg-card);
+            border: 1px dashed var(--border-bright);
+            border-radius: 14px;
+            margin: 2rem 0;
+            padding: 2rem;
+        }
+
+        .progress-panel {
+            background:
+                linear-gradient(135deg, rgba(200,245,66,0.09), transparent 42%),
+                linear-gradient(245deg, rgba(84,214,255,0.09), transparent 45%),
+                var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            margin: 1.5rem 0;
+            overflow: hidden;
+            padding: 1.4rem;
+            position: relative;
+        }
+
+        .progress-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -35%;
+            width: 35%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), var(--cyan), transparent);
+            animation: scanline 1.4s ease-in-out infinite;
+        }
+
+        @keyframes scanline {
+            0% { left: -35%; }
+            100% { left: 100%; }
+        }
+
+        .progress-title {
+            align-items: center;
+            color: var(--text-primary);
+            display: flex;
+            font-size: 16px;
+            gap: 10px;
+            margin-bottom: 1.2rem;
+        }
+
+        .progress-ring {
+            border: 2px solid rgba(255,255,255,0.10);
+            border-top-color: var(--accent);
+            border-right-color: var(--cyan);
+            border-radius: 50%;
+            height: 20px;
+            width: 20px;
+            animation: spin 0.9s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .progress-steps {
+            display: grid;
+            gap: 0.75rem;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .progress-step {
+            background: rgba(5,7,9,0.62);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            min-height: 74px;
+            padding: 0.8rem;
+            position: relative;
+        }
+
+        .progress-step.active {
+            border-color: rgba(200,245,66,0.45);
+            color: var(--accent);
+        }
+
+        .progress-step.done {
+            border-color: rgba(84,214,255,0.30);
+            color: var(--blue);
+        }
+
+        .progress-step strong {
+            color: var(--text-primary);
+            display: block;
+            font-family: var(--font-sans);
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0;
+            margin: 0.35rem 0 0.2rem;
+        }
+
+        .progress-step span {
+            color: var(--text-secondary);
+            display: block;
+            font-family: var(--font-sans);
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .progress-step.active strong,
+        .progress-step.done strong {
+            color: inherit;
         }
 
         .terminal-body {
@@ -769,7 +1191,10 @@ def apply_styles():
             .pipeline-bar,
             .split,
             .usecase-grid,
-            .stat-row {
+            .stat-row,
+            .outreach-grid,
+            .board-heading,
+            .progress-steps {
                 display: grid;
                 grid-template-columns: 1fr;
                 gap: 1rem;
@@ -801,8 +1226,7 @@ def apply_styles():
             }
         }
         </style>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
 
@@ -820,21 +1244,20 @@ def render_nav(show_try=True):
         else "<span></span>"
     )
 
-    st.markdown(
+    render_html(
         f"""
         <div class="tobi-nav">
             <a href="?" class="nav-logo">TOBI</a>
             <span class="nav-tag">AI outreach engine - v0.1</span>
             {action}
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
 
 def render_landing():
     render_nav(show_try=True)
-    st.markdown(
+    render_html(
         """
         <section class="hero">
             <div class="hero-grid-bg"></div>
@@ -884,7 +1307,15 @@ def render_landing():
             </div>
         </section>
         <div class="divider"></div>
-        <section class="section">
+        """
+    )
+
+    render_outreach_board(sample=True)
+
+    render_html(
+        """
+        <div class="divider"></div>
+        <section class="section accented">
             <div class="split">
                 <div>
                     <p class="section-label">Intelligence Layer</p>
@@ -958,8 +1389,7 @@ def render_landing():
             <span>TOBI - Tonally Obliged, Bespoke Interface</span>
             <span>open-source - github.com/kunal1704/TOBI</span>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
 
@@ -1006,9 +1436,59 @@ def run_retrieval_pipeline(website):
     }
 
 
+def progress_markup(active_step, error=None):
+    steps = [
+        ("01", "Extract website", "Crawling source pages"),
+        ("02", "Build profile", "Ranking useful signal"),
+        ("03", "Write draft", "Generating subject/body"),
+        ("04", "Save to Gmail", "Creating draft"),
+    ]
+
+    rendered_steps = []
+
+    for idx, (number, title, subtitle) in enumerate(steps):
+        if error and idx == active_step:
+            state = "active"
+            subtitle = error
+        elif active_step >= len(steps):
+            state = "done"
+            subtitle = "Completed"
+        elif idx < active_step:
+            state = "done"
+            subtitle = "Completed"
+        elif idx == active_step:
+            state = "active"
+        else:
+            state = ""
+
+        rendered_steps.append(
+            f"""
+            <div class="progress-step {state}">
+                <div>{number}</div>
+                <strong>{escape(title)}</strong>
+                <span>{escape(subtitle)}</span>
+            </div>
+            """
+        )
+
+    title = "Creating your Gmail draft..." if not error else "TOBI needs your attention"
+    ring = '<span class="progress-ring"></span>' if active_step < len(steps) and not error else ""
+
+    return dedent(
+        f"""
+        <div class="progress-panel">
+            <div class="progress-title">{ring}<span>{escape(title)}</span></div>
+            <div class="progress-steps">
+                {''.join(rendered_steps)}
+            </div>
+        </div>
+        """
+    ).strip()
+
+
 def render_workflow():
     render_nav(show_try=False)
-    st.markdown(
+    render_html(
         """
         <section class="draft-header">
             <div class="eyebrow"><span class="eyebrow-dot"></span>TOBI Draft Studio</div>
@@ -1017,9 +1497,10 @@ def render_workflow():
                 Add the recipient, your goal, and the context TOBI cannot infer. One click extracts, drafts, saves to Gmail, and hands you off to review before sending.
             </p>
         </section>
-        """,
-        unsafe_allow_html=True,
+        """
     )
+
+    render_outreach_board(st.session_state.outreach_history)
 
     with st.form("draft_form"):
         st.markdown("#### Recipient")
@@ -1097,6 +1578,7 @@ def render_workflow():
         details = {
             "recipient_name": recipient_name,
             "recipient_email": recipient_email,
+            "website": website,
             "sender_name": sender_name,
             "sender_affiliation": sender_affiliation,
             "sender_background": sender_background,
@@ -1109,41 +1591,40 @@ def render_workflow():
             "things_to_avoid": avoid,
         }
 
-        with st.status("Creating your Gmail draft...", expanded=True) as status:
-            st.write("Reading the recipient website.")
-            extraction_summary = run_retrieval_pipeline(website)
+        progress_slot = st.empty()
+        progress_slot.markdown(progress_markup(0), unsafe_allow_html=True)
 
-            st.write("Generating a grounded email draft.")
-            draft = generate_email_draft(
-                st.session_state.profile,
-                st.session_state.combined_text,
-                details,
+        progress_slot.markdown(progress_markup(1), unsafe_allow_html=True)
+        extraction_summary = run_retrieval_pipeline(website)
+
+        progress_slot.markdown(progress_markup(2), unsafe_allow_html=True)
+        draft = generate_email_draft(
+            st.session_state.profile,
+            st.session_state.combined_text,
+            details,
+        )
+
+        if "error" in draft:
+            progress_slot.markdown(
+                progress_markup(2, error="TOBI could not format the generated draft."),
+                unsafe_allow_html=True,
             )
-
-            if "error" in draft:
-                status.update(
-                    label="TOBI could not format the generated draft.",
-                    state="error",
-                    expanded=True,
-                )
-                st.session_state.email_draft = draft
-                st.stop()
-
             st.session_state.email_draft = draft
+            st.stop()
 
-            st.write("Saving the draft to Gmail.")
-            gmail_result = create_gmail_draft(
-                to_email=recipient_email,
-                subject=draft["subject"],
-                body=draft["body"],
-            )
-            st.session_state.gmail_result = gmail_result
+        st.session_state.email_draft = draft
 
-            status.update(
-                label="Draft saved to Gmail.",
-                state="complete",
-                expanded=False,
-            )
+        progress_slot.markdown(progress_markup(3), unsafe_allow_html=True)
+        gmail_result = create_gmail_draft(
+            to_email=recipient_email,
+            subject=draft["subject"],
+            body=draft["body"],
+        )
+        st.session_state.gmail_result = gmail_result
+
+        add_outreach_record(details, draft, extraction_summary, gmail_result)
+
+        progress_slot.markdown(progress_markup(4), unsafe_allow_html=True)
 
         render_success(extraction_summary)
 
@@ -1155,7 +1636,7 @@ def render_success(extraction_summary=None):
     draft = st.session_state.email_draft
     gmail_url = st.session_state.gmail_result.get("gmail_url", GMAIL_DRAFTS_URL)
 
-    st.markdown(
+    render_html(
         f"""
         <div class="success-panel">
             <p class="section-label">Saved to Gmail</p>
@@ -1166,8 +1647,7 @@ def render_success(extraction_summary=None):
                 and click send when you are happy with it.
             </p>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     components.html(
@@ -1203,6 +1683,8 @@ def render_success(extraction_summary=None):
             height=320,
             label_visibility="collapsed",
         )
+
+    render_outreach_board(st.session_state.outreach_history)
 
 
 st.set_page_config(page_title="TOBI", layout="wide", initial_sidebar_state="collapsed")
