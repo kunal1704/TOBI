@@ -376,34 +376,9 @@ def apply_styles():
             padding: 5.5rem 0 4rem;
             position: relative;
             transition: opacity 0.35s ease;
+            overflow: visible;
         }
 
-        .hero-grid-bg {
-            position: absolute;
-            inset: 0;
-            background-image:
-                linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-            background-size: 60px 60px;
-            mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 20%, transparent 100%);
-            -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 20%, transparent 100%);
-        }
-
-        .hero::before,
-        .section.accented::before,
-        .draft-header::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background:
-                linear-gradient(110deg, rgba(200,245,66,0.04), transparent 36%),
-                linear-gradient(245deg, rgba(84,214,255,0.04), transparent 38%),
-                linear-gradient(0deg, rgba(255,122,182,0.02), transparent 44%);
-            border-radius: 18px;
-            pointer-events: none;
-            -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-            mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-        }
 
         .hero-inner {
             position: relative;
@@ -1340,10 +1315,11 @@ def apply_styles():
         }
 
         div[data-testid="stForm"] {
-            background: var(--bg-card);
+            background: rgba(13,17,23,0.45);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.5rem;
+            border-radius: 14px;
+            padding: 1.25rem;
+            backdrop-filter: blur(10px);
         }
 
         .stTextInput label,
@@ -1359,7 +1335,7 @@ def apply_styles():
         .stTextInput input,
         .stTextArea textarea,
         .stSelectbox div[data-baseweb="select"] > div {
-            background: #050709 !important;
+            background: rgba(255,255,255,0.02) !important;
             border: 1px solid var(--border-bright) !important;
             border-radius: 8px !important;
             color: var(--text-primary) !important;
@@ -1703,7 +1679,13 @@ def render_landing():
         </section>
         <div class="tobi-footer">
             <span>TOBI - Tonally Obliged, Bespoke Interface</span>
-            <span>open-source - github.com/kunal1704/TOBI</span>
+            <span><ahref="https://github.com/kunal1704/TOBI"
+                    target="_blank"
+                    class="gmail-link"
+                    >
+                    GitHub →
+                </a>
+            </span>
         </div>
         """
     )
@@ -1906,70 +1888,53 @@ def render_workflow():
             generate_clicked = st.form_submit_button("Generate Draft")
 
         with col_right:
-            status_map = st.session_state.get("workflow_status", {})
-            pipeline_steps = [
-                "Website Extraction",
-                "Link Discovery",
-                "Semantic Ranking",
-                "Profile Generation",
-                "Draft Creation",
-                "Gmail Save",
-            ]
-            rows = ""
-            for step in pipeline_steps:
-                state = status_map.get(step, "waiting")
-                if state == "completed":
-                    icon, cls = "✓", "runtime-check"
-                elif state == "running":
-                    icon, cls = "◎", "runtime-running"
-                elif state == "failed":
-                    icon, cls = "✕", "runtime-failed"
-                else:
-                    icon, cls = "○", "runtime-pending"
-                rows += f'<div class="runtime-step"><span class="{cls}">{icon}</span> {step}</div>'
-            st.markdown(f"""
-            <div class="runtime-card">
-                <div class="runtime-card-header">Runtime Status</div>
-                {rows}
-            </div>
-            """, unsafe_allow_html=True)
 
-            summary = st.session_state.get("extraction_summary")
-            profile = st.session_state.get("profile")
+            status_placeholder = st.empty()
 
-            if st.session_state.get("email_draft") and summary and profile and "error" not in profile:
-                def fmt(val):
-                    if isinstance(val, list):
-                        return ", ".join(str(v) for v in val)
-                    return str(val) if val else ""
+            def render_runtime_panel():
+                status_map = st.session_state.get("workflow_status", {})
 
-                interests = fmt(profile.get("Research interests", ""))
-                topics = fmt(profile.get("Current topics", ""))
-                signals = fmt(profile.get("Personalization hooks", ""))
+                pipeline_steps = [
+                    "Website Extraction",
+                    "Link Discovery",
+                    "Semantic Ranking",
+                    "Profile Generation",
+                    "Draft Creation",
+                    "Gmail Save",
+                ]
 
-                lines = []
-                if interests:
-                    lines.append(f'<div class="runtime-step"><span style="color:var(--text-muted)">Research:</span> {escape(interests)}</div>')
-                if topics:
-                    lines.append(f'<div class="runtime-step"><span style="color:var(--text-muted)">Topics:</span> {escape(topics)}</div>')
-                if signals:
-                    lines.append(f'<div class="runtime-step"><span style="color:var(--text-muted)">Signals:</span> {escape(signals)}</div>')
-                lines.append(f'<div class="runtime-step"><span style="color:var(--text-muted)">Pages:</span> {summary["links_found"]} found, {summary["pages_ranked"]} ranked</div>')
+                rows = ""
 
-                st.markdown(f"""
-                <div class="runtime-card" style="margin-top:1rem">
-                    <div class="runtime-card-header">Signals Identified</div>
-                    {''.join(lines)}
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div class="runtime-card" style="margin-top:1rem">
-                    <div class="runtime-card-header">Signals Identified</div>
-                    <div class="runtime-step" style="color:var(--text-muted)">Waiting for website analysis...</div>
-                </div>
-                """, unsafe_allow_html=True)
+                for step in pipeline_steps:
+                    state = status_map.get(step, "waiting")
 
+                    if state == "completed":
+                        icon, cls = "✓", "runtime-check"
+                    elif state == "running":
+                        icon, cls = "◉", "runtime-running"
+                    elif state == "failed":
+                        icon, cls = "✕", "runtime-failed"
+                    else:
+                        icon, cls = "○", "runtime-pending"
+
+                    rows += f"""
+                    <div class="runtime-step">
+                        <span class="{cls}">{icon}</span>
+                        {step}
+                    </div>
+                    """
+
+                status_placeholder.markdown(
+                    f"""
+                    <div class="runtime-card">
+                        <div class="runtime-card-header">Runtime Status</div>
+                        {rows}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            render_runtime_panel()
     if generate_clicked:
         required_fields = {
             "recipient name": recipient_name,
@@ -2108,16 +2073,19 @@ def render_success(extraction_summary=None):
             """
         )
 
-    components.html(
-        f"""
-        <script>
-        setTimeout(() => {{
-            window.open("{gmail_url}", "_blank", "noopener,noreferrer");
-        }}, 1600);
-        </script>
-        """,
-        height=0,
-    )
+    if "gmail_opened" not in st.session_state:
+        st.session_state.gmail_opened = True
+
+        components.html(
+            f"""
+            <script>
+            setTimeout(() => {{
+                window.open("{gmail_url}", "_blank", "noopener,noreferrer");
+            }}, 1600);
+            </script>
+            """,
+            height=0,
+        )
 
     to_name = latest.get("recipient_name", "")
     to_email = latest.get("recipient_email", "")
