@@ -6,3 +6,4 @@ __pycache__/
 .streamlit/
 credentials.json
 token.json
+.tobi_data/
