@@ -86,6 +86,13 @@ To save drafts to Gmail, enable the Gmail API in Google Cloud, create an
 OAuth desktop client, download it as credentials.json, and run the app.
 The first draft save opens a Google OAuth flow and stores token.json locally.
 
+## Local Profiles
+
+TOBI supports local sign up / login for development. Saved accounts, remembered
+sessions, and editable sender profiles are stored in `.tobi_data/`, which is
+ignored by git. Uploaded files are read in memory to build the profile and are
+not committed to the repository.
+
 ## RUN
 
 streamlit run app.py

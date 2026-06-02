@@ -1792,7 +1792,7 @@ def render_landing():
         </section>
         <div class="tobi-footer">
             <span>TOBI - Tonally Obliged, Bespoke Interface</span>
-            <span><ahref="https://github.com/kunal1704/TOBI"
+            <span><a href="https://github.com/kunal1704/TOBI"
                     target="_blank"
                     class="gmail-link"
                     >
