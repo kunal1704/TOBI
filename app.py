@@ -1,15 +1,27 @@
 from datetime import datetime
 from html import escape
+import json
 from textwrap import dedent
 
 import streamlit as st
 import streamlit.components.v1 as components
 
+from auth_storage import (
+    clear_remembered_user,
+    create_user,
+    get_remembered_user,
+    get_user,
+    remember_user,
+    save_user_profile,
+    verify_user,
+)
 from configs import *
+from document_extractors import extract_uploaded_file
 from extraction.link_extractor import get_internal_links
 from extraction.website_extractor import extract_website_text
 from generation.email_generator import generate_email_draft
 from generation.profile_extractor import extract_recipient_profile
+from generation.user_profile_builder import build_user_profile
 from gmail_drafts import GMAIL_DRAFTS_URL, create_gmail_draft
 from retrieval.link_filter import filter_relevant_links
 from retrieval.semantic_ranker import rank_pages_semantically
@@ -59,15 +71,48 @@ def initialize_state():
         "gmail_result": None,
         "outreach_history": [],
         "workflow_status": {},
+        "current_user": None,
     }
 
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
+    if st.session_state.current_user is None:
+        remembered_user = get_remembered_user()
+
+        if remembered_user:
+            st.session_state.current_user = remembered_user
+
 
 def is_try_mode():
     return st.query_params.get("mode") == "try"
+
+
+def current_mode():
+    return st.query_params.get("mode", "landing")
+
+
+def is_profile_mode():
+    return current_mode() == "profile"
+
+
+def is_auth_mode():
+    return current_mode() == "auth"
+
+
+def is_logout_mode():
+    return current_mode() == "logout"
+
+
+def get_current_profile():
+    user = st.session_state.get("current_user") or {}
+    return user.get("profile") or {}
+
+
+def get_current_user_email():
+    user = st.session_state.get("current_user") or {}
+    return user.get("email", "")
 
 
 def render_html(markup):
@@ -349,6 +394,25 @@ def apply_styles():
             font-family: var(--font-mono);
             font-size: 11px;
             letter-spacing: 0.06em;
+        }
+
+        .nav-actions {
+            align-items: center;
+            display: flex;
+            gap: 0.8rem;
+        }
+
+        .nav-link {
+            color: var(--text-secondary) !important;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.06em;
+            text-decoration: none !important;
+            text-transform: uppercase;
+        }
+
+        .nav-link:hover {
+            color: var(--accent) !important;
         }
 
         .btn-primary {
@@ -1314,6 +1378,47 @@ def apply_styles():
             margin-top: 1.5rem;
         }
 
+        .auth-shell,
+        .profile-shell {
+            padding: 5rem 0 3rem;
+        }
+
+        .profile-summary-card {
+            background:
+                linear-gradient(145deg, rgba(200,245,66,0.10), transparent 42%),
+                linear-gradient(245deg, rgba(84,214,255,0.08), transparent 45%),
+                var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.5rem;
+        }
+
+        .profile-kv {
+            border-bottom: 1px solid var(--border);
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: 140px 1fr;
+            padding: 0.8rem 0;
+        }
+
+        .profile-kv:last-child {
+            border-bottom: 0;
+        }
+
+        .profile-kv span {
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .profile-kv strong {
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
         div[data-testid="stForm"] {
             background: rgba(13,17,23,0.45);
             border: 1px solid var(--border);
@@ -1452,6 +1557,10 @@ def apply_styles():
 
 
 def render_nav(show_try=True):
+    user = st.session_state.get("current_user")
+    profile_label = "Profile" if user else "Login"
+    profile_href = "?mode=profile" if user else "?mode=auth"
+    auth_action = '<a href="?mode=logout" class="nav-link">Sign out</a>' if user else ""
     action = (
         """
         <a href="?mode=try" class="btn-primary">
@@ -1470,7 +1579,11 @@ def render_nav(show_try=True):
         <div class="tobi-nav">
             <a href="?" class="nav-logo">TOBI</a>
             <span class="nav-tag">AI outreach engine - v0.1</span>
-            {action}
+            <div class="nav-actions">
+                <a href="{profile_href}" class="nav-link">{profile_label}</a>
+                {auth_action}
+                {action}
+            </div>
         </div>
         """
     )
@@ -1691,6 +1804,301 @@ def render_landing():
     )
 
 
+def render_auth_page():
+    render_nav(show_try=True)
+    render_html(
+        """
+        <section class="auth-shell">
+            <div class="eyebrow"><span class="eyebrow-dot"></span>TOBI Account</div>
+            <h1 class="workflow-headline">Save your sender profile<br>on this device.</h1>
+            <p class="hero-sub">
+                Sign up or log in to keep your sender profile and avoid re-entering the same information.
+                This local version stores account/profile data in an ignored .tobi_data folder.
+            </p>
+        </section>
+        """
+    )
+
+    login_tab, signup_tab = st.tabs(["Login", "Sign up"])
+
+    with login_tab:
+        with st.form("login_form"):
+            email = st.text_input("Email", key="login_email")
+            password = st.text_input("Password", type="password", key="login_password")
+            remember = st.checkbox("Stay signed in on this device", value=True)
+            submitted = st.form_submit_button("Login")
+
+        if submitted:
+            user = verify_user(email, password)
+
+            if not user:
+                st.error("Invalid email or password.")
+                st.stop()
+
+            st.session_state.current_user = user
+
+            if remember:
+                remember_user(user["email"])
+
+            st.query_params["mode"] = "profile"
+            st.rerun()
+
+    with signup_tab:
+        with st.form("signup_form"):
+            full_name = st.text_input("Full Name", key="signup_name")
+            email = st.text_input("Email", key="signup_email")
+            password = st.text_input("Password", type="password", key="signup_password")
+            remember = st.checkbox("Stay signed in on this device", value=True, key="signup_remember")
+            submitted = st.form_submit_button("Create Account")
+
+        if submitted:
+            if len(password) < 8:
+                st.error("Please use a password with at least 8 characters.")
+                st.stop()
+
+            try:
+                user = create_user(email, password, full_name=full_name)
+            except ValueError as exc:
+                st.error(str(exc))
+                st.stop()
+
+            st.session_state.current_user = user
+
+            if remember:
+                remember_user(user["email"])
+
+            st.query_params["mode"] = "profile"
+            st.rerun()
+
+
+def extract_link_sources(link_map, other_links):
+    sources = []
+
+    for label, url in link_map.items():
+        if not url:
+            continue
+
+        text = extract_website_text(url)
+        sources.append({
+            "type": label,
+            "url": url,
+            "text": text or "",
+        })
+
+    for url in other_links:
+        if not url:
+            continue
+
+        text = extract_website_text(url)
+        sources.append({
+            "type": "other_link",
+            "url": url,
+            "text": text or "",
+        })
+
+    return sources
+
+
+def extract_file_sources(cv_file, other_files):
+    sources = []
+
+    for label, uploaded_file in [("cv_resume", cv_file)]:
+        if not uploaded_file:
+            continue
+
+        sources.append({
+            "type": label,
+            "name": uploaded_file.name,
+            "text": extract_uploaded_file(uploaded_file),
+        })
+
+    for uploaded_file in other_files or []:
+        sources.append({
+            "type": "other_file",
+            "name": uploaded_file.name,
+            "text": extract_uploaded_file(uploaded_file),
+        })
+
+    return sources
+
+
+def render_profile_summary(profile):
+    if not profile:
+        render_html(
+            """
+            <div class="profile-summary-card">
+                <p class="section-label">Sender Profile</p>
+                <h2 class="section-headline">No profile built yet.</h2>
+                <p class="section-sub">Upload your links and documents, then build a sender profile TOBI can reuse for every draft.</p>
+            </div>
+            """
+        )
+        return
+
+    name = escape(profile.get("full_name", ""))
+    headline = escape(profile.get("headline", ""))
+    affiliation = escape(profile.get("affiliation", ""))
+    summary = escape(profile.get("summary", ""))
+    expertise = ", ".join(profile.get("expertise", [])[:6]) if isinstance(profile.get("expertise"), list) else ""
+
+    render_html(
+        f"""
+        <div class="profile-summary-card">
+            <p class="section-label">Sender Profile</p>
+            <h2 class="section-headline">{name or "Your TOBI profile"}</h2>
+            <div class="profile-kv"><span>Headline</span><strong>{headline}</strong></div>
+            <div class="profile-kv"><span>Affiliation</span><strong>{affiliation}</strong></div>
+            <div class="profile-kv"><span>Expertise</span><strong>{escape(expertise)}</strong></div>
+            <div class="profile-kv"><span>Summary</span><strong>{summary}</strong></div>
+        </div>
+        """
+    )
+
+
+def render_profile_page():
+    if not st.session_state.current_user:
+        render_auth_page()
+        return
+
+    render_nav(show_try=True)
+    user = st.session_state.current_user
+    saved_profile = user.get("profile") or {}
+
+    render_html(
+        f"""
+        <section class="profile-shell">
+            <div class="eyebrow"><span class="eyebrow-dot"></span>Sender Profile</div>
+            <h1 class="workflow-headline">Teach TOBI who you are.</h1>
+            <p class="hero-sub">
+                Add your CV, LinkedIn, website, GitHub, and supporting files. TOBI will build a reusable sender profile you can inspect and edit.
+            </p>
+            <div class="hero-stat">Signed in as {escape(user["email"])}</div>
+        </section>
+        """
+    )
+
+    render_profile_summary(saved_profile)
+
+    with st.form("profile_builder_form"):
+        st.markdown("#### Core Details")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            full_name = st.text_input("Full Name", value=saved_profile.get("full_name", user.get("full_name", "")))
+            affiliation = st.text_input("Affiliation (if any)", value=saved_profile.get("affiliation", ""))
+            location = st.text_input("Location", value=saved_profile.get("location", ""))
+
+        with col2:
+            headline = st.text_input("Headline", value=saved_profile.get("headline", ""))
+            preferred_context = st.text_area(
+                "Preferred Sender Context",
+                value=saved_profile.get("preferred_sender_context", ""),
+                height=110,
+            )
+
+        st.markdown("#### Links")
+        col3, col4, col5 = st.columns(3)
+
+        links = saved_profile.get("links", {}) if isinstance(saved_profile.get("links"), dict) else {}
+
+        with col3:
+            linkedin = st.text_input("LinkedIn", value=links.get("linkedin", ""))
+
+        with col4:
+            website = st.text_input("Website", value=links.get("website", ""))
+
+        with col5:
+            github = st.text_input("GitHub", value=links.get("github", ""))
+
+        other_links_text = st.text_area(
+            "Other Links",
+            value="\n".join(links.get("other", [])) if isinstance(links.get("other"), list) else "",
+            placeholder="Add one link per line.",
+            height=110,
+        )
+
+        st.markdown("#### Uploads")
+        cv_file = st.file_uploader("CV / Resume", type=["pdf", "docx", "txt", "md"])
+        other_files = st.file_uploader(
+            "Other files / folder contents",
+            type=["pdf", "docx", "txt", "md", "csv"],
+            accept_multiple_files=True,
+            help="Streamlit cannot select folders directly, but you can select multiple files from a folder.",
+        )
+
+        build_clicked = st.form_submit_button("Build / Update Profile")
+
+    if build_clicked:
+        other_links = [line.strip() for line in other_links_text.splitlines() if line.strip()]
+        link_map = {
+            "linkedin": linkedin.strip(),
+            "website": website.strip(),
+            "github": github.strip(),
+        }
+
+        with st.spinner("Building your sender profile..."):
+            try:
+                link_sources = extract_link_sources(link_map, other_links)
+                file_sources = extract_file_sources(cv_file, other_files)
+            except Exception as exc:
+                st.error(str(exc))
+                st.stop()
+
+            source_payload = {
+                "manual_details": {
+                    "full_name": full_name,
+                    "headline": headline,
+                    "affiliation": affiliation,
+                    "location": location,
+                    "preferred_sender_context": preferred_context,
+                },
+                "links": {
+                    "linkedin": linkedin,
+                    "website": website,
+                    "github": github,
+                    "other": other_links,
+                },
+                "link_sources": link_sources,
+                "file_sources": file_sources,
+            }
+
+            built_profile = build_user_profile(source_payload)
+
+        if "error" in built_profile:
+            st.error("TOBI could not parse the generated profile.")
+            st.text_area("Raw output", built_profile.get("raw_output", ""), height=260)
+            st.stop()
+
+        built_profile["full_name"] = built_profile.get("full_name") or full_name
+        built_profile["headline"] = built_profile.get("headline") or headline
+        built_profile["affiliation"] = built_profile.get("affiliation") or affiliation
+        built_profile["location"] = built_profile.get("location") or location
+        built_profile["preferred_sender_context"] = (
+            built_profile.get("preferred_sender_context") or preferred_context
+        )
+
+        st.session_state.current_user = save_user_profile(user["email"], built_profile)
+        st.success("Profile updated.")
+        st.rerun()
+
+    editable_profile = json.dumps(get_current_profile(), indent=2)
+
+    with st.form("profile_editor_form"):
+        edited_profile = st.text_area("Editable Profile JSON", value=editable_profile, height=420)
+        save_clicked = st.form_submit_button("Save Edited Profile")
+
+    if save_clicked:
+        try:
+            parsed_profile = json.loads(edited_profile)
+        except json.JSONDecodeError as exc:
+            st.error(f"Invalid JSON: {exc}")
+            st.stop()
+
+        st.session_state.current_user = save_user_profile(user["email"], parsed_profile)
+        st.success("Edited profile saved.")
+        st.rerun()
+
+
 def run_retrieval_pipeline(website):
     st.session_state.workflow_status["Website Extraction"] = "running"
     homepage_text = extract_website_text(website)
@@ -1795,7 +2203,28 @@ def progress_markup(active_step, error=None):
 
 
 def render_workflow():
+    if not st.session_state.current_user:
+        render_auth_page()
+        return
+
     render_nav(show_try=False)
+    user_profile = get_current_profile()
+
+    if not user_profile:
+        render_html(
+            """
+            <section class="draft-header">
+                <div class="eyebrow"><span class="eyebrow-dot"></span>Profile Required</div>
+                <h1 class="workflow-headline">Create your sender profile first.</h1>
+                <p class="hero-sub">
+                    TOBI now uses your saved profile to write stronger outreach. Build it once, edit it anytime, and reuse it for every draft.
+                </p>
+                <a href="?mode=profile" class="btn-primary">Create Profile</a>
+            </section>
+            """
+        )
+        return
+
     render_html(
         """
         <section class="draft-header">
@@ -1860,19 +2289,10 @@ def render_workflow():
                         value="Would you be open to a short conversation?",
                     )
 
-            with st.expander("Sender", expanded=False):
-                col3, col4 = st.columns(2)
-
-                with col3:
-                    sender_name = st.text_input("Your Name")
-                    sender_affiliation = st.text_input("Affiliation (if any)")
-
-                with col4:
-                    sender_background = st.text_area(
-                        "Relevant Background",
-                        placeholder="A short note about your work, project, research interest, or reason this outreach matters.",
-                        height=110,
-                    )
+            sender_affiliation = st.text_input(
+                "Affiliation (if any)",
+                value=user_profile.get("affiliation", ""),
+            )
 
             extra_context = st.text_area(
                 "Additional Context",
@@ -1941,7 +2361,6 @@ def render_workflow():
             "recipient email": recipient_email,
             "website URL": website,
             "outreach goal": outreach_goal,
-            "your name": sender_name,
         }
         missing = [label for label, value in required_fields.items() if not value.strip()]
 
@@ -1953,9 +2372,10 @@ def render_workflow():
             "recipient_name": recipient_name,
             "recipient_email": recipient_email,
             "website": website,
-            "sender_name": sender_name,
+            "sender_name": user_profile.get("full_name", ""),
             "sender_affiliation": sender_affiliation,
-            "sender_background": sender_background,
+            "sender_background": user_profile.get("preferred_sender_context", ""),
+            "user_profile": user_profile,
             "tone": tone,
             "intent": intent,
             "call_to_action": call_to_action,
@@ -2165,7 +2585,16 @@ st.set_page_config(page_title="TOBI", layout="wide", initial_sidebar_state="coll
 initialize_state()
 apply_styles()
 
-if is_try_mode():
+if is_logout_mode():
+    clear_remembered_user()
+    st.session_state.current_user = None
+    st.query_params["mode"] = "auth"
+    st.rerun()
+elif is_auth_mode():
+    render_auth_page()
+elif is_profile_mode():
+    render_profile_page()
+elif is_try_mode():
     render_workflow()
 else:
     render_landing()

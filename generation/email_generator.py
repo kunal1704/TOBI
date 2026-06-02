@@ -36,6 +36,8 @@ def generate_email_draft(profile, context, details):
     Do not invent achievements, affiliations, publications, or personal details.
     Keep the message skimmable and avoid over-flattery.
     Use the sender background only when it strengthens credibility or relevance.
+    If a structured user_profile is provided, use it as the source of truth for
+    the sender's identity, affiliation, expertise, projects, and credibility.
     Honor the requested length, tone, call to action, and any things to avoid.
     End with a polished sign-off using the sender name when available.
 
