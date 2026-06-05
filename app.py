@@ -1,6 +1,5 @@
 from datetime import datetime
 from html import escape
-import json
 from textwrap import dedent
 
 import streamlit as st
@@ -113,6 +112,55 @@ def get_current_profile():
 def get_current_user_email():
     user = st.session_state.get("current_user") or {}
     return user.get("email", "")
+
+
+def as_lines(value):
+    if isinstance(value, list):
+        return "\n".join(str(item) for item in value if item)
+
+    if value:
+        return str(value)
+
+    return ""
+
+
+def lines_to_list(value):
+    return [line.strip() for line in value.splitlines() if line.strip()]
+
+
+def build_sender_context(profile):
+    parts = []
+
+    simple_fields = [
+        ("Name", profile.get("full_name")),
+        ("Affiliation", profile.get("affiliation")),
+        ("Location", profile.get("location")),
+        ("Summary", profile.get("summary")),
+        ("Current focus", profile.get("current_focus")),
+        ("Writing style", profile.get("writing_style")),
+        ("Availability", profile.get("availability")),
+        ("Signature", profile.get("signature")),
+    ]
+
+    for label, value in simple_fields:
+        if value:
+            parts.append(f"{label}: {value}")
+
+    list_fields = [
+        ("Expertise", profile.get("expertise")),
+        ("Projects", profile.get("projects")),
+        ("Achievements", profile.get("achievements")),
+        ("Education", profile.get("education")),
+        ("Collaboration interests", profile.get("collaboration_interests")),
+        ("Target audience", profile.get("target_audience")),
+        ("Outreach strengths", profile.get("outreach_strengths")),
+    ]
+
+    for label, values in list_fields:
+        if isinstance(values, list) and values:
+            parts.append(f"{label}: {', '.join(str(value) for value in values if value)}")
+
+    return "\n".join(parts)
 
 
 def render_html(markup):
@@ -1813,7 +1861,6 @@ def render_auth_page():
             <h1 class="workflow-headline">Save your sender profile<br>on this device.</h1>
             <p class="hero-sub">
                 Sign up or log in to keep your sender profile and avoid re-entering the same information.
-                This local version stores account/profile data in an ignored .tobi_data folder.
             </p>
         </section>
         """
@@ -1936,8 +1983,8 @@ def render_profile_summary(profile):
         return
 
     name = escape(profile.get("full_name", ""))
-    headline = escape(profile.get("headline", ""))
     affiliation = escape(profile.get("affiliation", ""))
+    current_focus = escape(profile.get("current_focus", ""))
     summary = escape(profile.get("summary", ""))
     expertise = ", ".join(profile.get("expertise", [])[:6]) if isinstance(profile.get("expertise"), list) else ""
 
@@ -1946,13 +1993,189 @@ def render_profile_summary(profile):
         <div class="profile-summary-card">
             <p class="section-label">Sender Profile</p>
             <h2 class="section-headline">{name or "Your TOBI profile"}</h2>
-            <div class="profile-kv"><span>Headline</span><strong>{headline}</strong></div>
             <div class="profile-kv"><span>Affiliation</span><strong>{affiliation}</strong></div>
+            <div class="profile-kv"><span>Current Focus</span><strong>{current_focus}</strong></div>
             <div class="profile-kv"><span>Expertise</span><strong>{escape(expertise)}</strong></div>
             <div class="profile-kv"><span>Summary</span><strong>{summary}</strong></div>
         </div>
         """
     )
+
+
+def render_profile_editor(user, profile):
+    profile = profile or {}
+    links = profile.get("links", {}) if isinstance(profile.get("links"), dict) else {}
+
+    st.markdown("#### Edit Sender Profile")
+
+    with st.form("profile_editor_form"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            full_name = st.text_input(
+                "Full Name",
+                value=profile.get("full_name", user.get("full_name", "")),
+                key="edit_full_name",
+            )
+            affiliation = st.text_input(
+                "Affiliation (if any)",
+                value=profile.get("affiliation", ""),
+                key="edit_affiliation",
+            )
+            location = st.text_input(
+                "Location",
+                value=profile.get("location", ""),
+                key="edit_location",
+            )
+            signature = st.text_input(
+                "Email Signature",
+                value=profile.get("signature", ""),
+                placeholder="Best, Kunal",
+                key="edit_signature",
+            )
+            availability = st.text_input(
+                "Availability",
+                value=profile.get("availability", ""),
+                placeholder="e.g. Open to short calls on weekdays",
+                key="edit_availability",
+            )
+
+        with col2:
+            summary = st.text_area(
+                "Professional Summary",
+                value=profile.get("summary", ""),
+                height=130,
+                key="edit_summary",
+            )
+            current_focus = st.text_area(
+                "Current Focus",
+                value=profile.get("current_focus", ""),
+                height=105,
+                key="edit_current_focus",
+            )
+            writing_style = st.text_area(
+                "Writing Style",
+                value=profile.get("writing_style", ""),
+                placeholder="e.g. concise, technical, warm, low-fluff",
+                height=95,
+                key="edit_writing_style",
+            )
+
+        st.markdown("#### Experience and Outreach Context")
+        col3, col4 = st.columns(2)
+
+        with col3:
+            expertise = st.text_area(
+                "Expertise",
+                value=as_lines(profile.get("expertise")),
+                placeholder="One skill or domain per line.",
+                height=120,
+                key="edit_expertise",
+            )
+            projects = st.text_area(
+                "Projects",
+                value=as_lines(profile.get("projects")),
+                placeholder="One project per line.",
+                height=120,
+                key="edit_projects",
+            )
+            achievements = st.text_area(
+                "Achievements",
+                value=as_lines(profile.get("achievements")),
+                placeholder="One achievement per line.",
+                height=120,
+                key="edit_achievements",
+            )
+
+        with col4:
+            education = st.text_area(
+                "Education",
+                value=as_lines(profile.get("education")),
+                placeholder="One education item per line.",
+                height=120,
+                key="edit_education",
+            )
+            collaboration_interests = st.text_area(
+                "Collaboration Interests",
+                value=as_lines(profile.get("collaboration_interests")),
+                placeholder="What kinds of people/projects do you want to reach out to?",
+                height=120,
+                key="edit_collaboration_interests",
+            )
+            target_audience = st.text_area(
+                "Target Audience",
+                value=as_lines(profile.get("target_audience")),
+                placeholder="e.g. professors, founders, recruiters, investors",
+                height=120,
+                key="edit_target_audience",
+            )
+
+        outreach_strengths = st.text_area(
+            "Outreach Strengths",
+            value=as_lines(profile.get("outreach_strengths")),
+            placeholder="What credibility points should TOBI lean on? One per line.",
+            height=105,
+            key="edit_outreach_strengths",
+        )
+        missing_information = st.text_area(
+            "Missing Information / Reminders",
+            value=as_lines(profile.get("missing_information")),
+            placeholder="Anything TOBI should ask you to fill later. One per line.",
+            height=95,
+            key="edit_missing_information",
+        )
+
+        st.markdown("#### Profile Links")
+        col5, col6, col7 = st.columns(3)
+
+        with col5:
+            linkedin = st.text_input("LinkedIn", value=links.get("linkedin", ""), key="edit_linkedin")
+
+        with col6:
+            website = st.text_input("Website", value=links.get("website", ""), key="edit_website")
+
+        with col7:
+            github = st.text_input("GitHub", value=links.get("github", ""), key="edit_github")
+
+        other_links = st.text_area(
+            "Other Links",
+            value=as_lines(links.get("other")),
+            placeholder="One link per line.",
+            height=95,
+            key="edit_other_links",
+        )
+
+        save_clicked = st.form_submit_button("Save Profile")
+
+    if save_clicked:
+        edited_profile = {
+            "full_name": full_name,
+            "affiliation": affiliation,
+            "location": location,
+            "summary": summary,
+            "current_focus": current_focus,
+            "expertise": lines_to_list(expertise),
+            "projects": lines_to_list(projects),
+            "achievements": lines_to_list(achievements),
+            "education": lines_to_list(education),
+            "collaboration_interests": lines_to_list(collaboration_interests),
+            "target_audience": lines_to_list(target_audience),
+            "links": {
+                "linkedin": linkedin,
+                "website": website,
+                "github": github,
+                "other": lines_to_list(other_links),
+            },
+            "writing_style": writing_style,
+            "outreach_strengths": lines_to_list(outreach_strengths),
+            "signature": signature,
+            "availability": availability,
+            "missing_information": lines_to_list(missing_information),
+        }
+
+        st.session_state.current_user = save_user_profile(user["email"], edited_profile)
+        st.success("Profile saved.")
+        st.rerun()
 
 
 def render_profile_page():
@@ -1989,10 +2212,15 @@ def render_profile_page():
             location = st.text_input("Location", value=saved_profile.get("location", ""))
 
         with col2:
-            headline = st.text_input("Headline", value=saved_profile.get("headline", ""))
-            preferred_context = st.text_area(
-                "Preferred Sender Context",
-                value=saved_profile.get("preferred_sender_context", ""),
+            current_focus = st.text_area(
+                "Current Focus",
+                value=saved_profile.get("current_focus", ""),
+                placeholder="What are you currently working on or exploring?",
+                height=95,
+            )
+            profile_notes = st.text_area(
+                "Profile Notes",
+                placeholder="Anything TOBI should consider while building your profile from your sources.",
                 height=110,
             )
 
@@ -2047,10 +2275,10 @@ def render_profile_page():
             source_payload = {
                 "manual_details": {
                     "full_name": full_name,
-                    "headline": headline,
                     "affiliation": affiliation,
                     "location": location,
-                    "preferred_sender_context": preferred_context,
+                    "current_focus": current_focus,
+                    "profile_notes": profile_notes,
                 },
                 "links": {
                     "linkedin": linkedin,
@@ -2070,33 +2298,15 @@ def render_profile_page():
             st.stop()
 
         built_profile["full_name"] = built_profile.get("full_name") or full_name
-        built_profile["headline"] = built_profile.get("headline") or headline
         built_profile["affiliation"] = built_profile.get("affiliation") or affiliation
         built_profile["location"] = built_profile.get("location") or location
-        built_profile["preferred_sender_context"] = (
-            built_profile.get("preferred_sender_context") or preferred_context
-        )
+        built_profile["current_focus"] = built_profile.get("current_focus") or current_focus
 
         st.session_state.current_user = save_user_profile(user["email"], built_profile)
         st.success("Profile updated.")
         st.rerun()
 
-    editable_profile = json.dumps(get_current_profile(), indent=2)
-
-    with st.form("profile_editor_form"):
-        edited_profile = st.text_area("Editable Profile JSON", value=editable_profile, height=420)
-        save_clicked = st.form_submit_button("Save Edited Profile")
-
-    if save_clicked:
-        try:
-            parsed_profile = json.loads(edited_profile)
-        except json.JSONDecodeError as exc:
-            st.error(f"Invalid JSON: {exc}")
-            st.stop()
-
-        st.session_state.current_user = save_user_profile(user["email"], parsed_profile)
-        st.success("Edited profile saved.")
-        st.rerun()
+    render_profile_editor(user, get_current_profile())
 
 
 def run_retrieval_pipeline(website):
@@ -2374,7 +2584,7 @@ def render_workflow():
             "website": website,
             "sender_name": user_profile.get("full_name", ""),
             "sender_affiliation": sender_affiliation,
-            "sender_background": user_profile.get("preferred_sender_context", ""),
+            "sender_background": build_sender_context(user_profile),
             "user_profile": user_profile,
             "tone": tone,
             "intent": intent,

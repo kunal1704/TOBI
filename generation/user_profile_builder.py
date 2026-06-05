@@ -28,23 +28,26 @@ def build_user_profile(source_payload):
     Return ONLY valid JSON with this schema:
     {{
       "full_name": "string",
-      "headline": "string",
       "affiliation": "string",
       "location": "string",
       "summary": "string",
+      "current_focus": "string",
       "expertise": ["string"],
       "projects": ["string"],
       "achievements": ["string"],
       "education": ["string"],
+      "collaboration_interests": ["string"],
+      "target_audience": ["string"],
       "links": {{
         "linkedin": "string",
         "website": "string",
         "github": "string",
         "other": ["string"]
       }},
-      "preferred_sender_context": "string",
       "writing_style": "string",
       "outreach_strengths": ["string"],
+      "signature": "string",
+      "availability": "string",
       "missing_information": ["string"]
     }}
 
