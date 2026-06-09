@@ -71,6 +71,7 @@ def initialize_state():
         "outreach_history": [],
         "workflow_status": {},
         "current_user": None,
+        "editing_sender_profile": False,
     }
 
     for key, value in defaults.items():
@@ -2006,7 +2007,7 @@ def render_profile_editor(user, profile):
     profile = profile or {}
     links = profile.get("links", {}) if isinstance(profile.get("links"), dict) else {}
 
-    st.markdown("#### Edit Sender Profile")
+    st.markdown("#### Update Sender Profile")
 
     with st.form("profile_editor_form"):
         col1, col2 = st.columns(2)
@@ -2174,6 +2175,7 @@ def render_profile_editor(user, profile):
         }
 
         st.session_state.current_user = save_user_profile(user["email"], edited_profile)
+        st.session_state.editing_sender_profile = False
         st.success("Profile saved.")
         st.rerun()
 
@@ -2186,6 +2188,7 @@ def render_profile_page():
     render_nav(show_try=True)
     user = st.session_state.current_user
     saved_profile = user.get("profile") or {}
+    has_saved_profile = bool(saved_profile)
 
     render_html(
         f"""
@@ -2201,6 +2204,22 @@ def render_profile_page():
     )
 
     render_profile_summary(saved_profile)
+
+    if has_saved_profile and not st.session_state.get("editing_sender_profile", False):
+        if st.button("Update Profile", type="primary"):
+            st.session_state.editing_sender_profile = True
+            st.rerun()
+
+        return
+
+    if has_saved_profile and st.session_state.get("editing_sender_profile", False):
+        render_profile_editor(user, saved_profile)
+
+        if st.button("Cancel"):
+            st.session_state.editing_sender_profile = False
+            st.rerun()
+
+        return
 
     with st.form("profile_builder_form"):
         st.markdown("#### Core Details")
@@ -2303,10 +2322,9 @@ def render_profile_page():
         built_profile["current_focus"] = built_profile.get("current_focus") or current_focus
 
         st.session_state.current_user = save_user_profile(user["email"], built_profile)
+        st.session_state.editing_sender_profile = False
         st.success("Profile updated.")
         st.rerun()
-
-    render_profile_editor(user, get_current_profile())
 
 
 def run_retrieval_pipeline(website):
