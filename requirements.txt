@@ -1,6 +1,5 @@
 streamlit
 openai
-trafilatura
 requests
 beautifulsoup4
 lxml

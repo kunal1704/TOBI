@@ -1,8 +1,9 @@
 import ipaddress
 import socket
+from html.parser import HTMLParser
 from urllib.parse import urlparse
 
-import trafilatura
+import requests
 
 
 """
@@ -21,6 +22,20 @@ BLOCKED_HOSTNAMES = {
     "localhost",
     "metadata.google.internal",
 }
+
+
+class _TextExtractor(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.parts = []
+
+    def handle_data(self, data):
+        text = (data or "").strip()
+        if text:
+            self.parts.append(text)
+
+    def get_text(self):
+        return " ".join(self.parts)
 
 
 def validate_public_url(url):
@@ -67,11 +82,31 @@ def validate_public_url(url):
 
 def extract_website_text(url):
     safe_url = validate_public_url(url)
-    downloaded = trafilatura.fetch_url(safe_url)
 
-    if downloaded is None:
-        return None
+    try:
+        import trafilatura
+    except ImportError:
+        trafilatura = None
 
-    text = trafilatura.extract(downloaded)
+    if trafilatura is not None:
+        downloaded = trafilatura.fetch_url(safe_url)
 
-    return text
+        if downloaded is None:
+            return None
+
+        text = trafilatura.extract(downloaded)
+        if text:
+            return text
+
+    response = requests.get(
+        safe_url,
+        timeout=(3, 12),
+        headers={"User-Agent": "TOBI/1.0 public-profile-fetcher"},
+    )
+    response.raise_for_status()
+
+    parser = _TextExtractor()
+    parser.feed(response.text)
+    text = parser.get_text().strip()
+
+    return text or None
