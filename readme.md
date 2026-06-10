@@ -71,6 +71,9 @@ conda env create -f environment.yml
 conda activate tobi
 ```
 
+For Streamlit Cloud deployment, use `requirements.txt` in the repository root.
+The Conda file is for local development.
+
 ## Environment Variables
 
 Create .env
