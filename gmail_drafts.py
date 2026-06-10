@@ -23,12 +23,13 @@ GMAIL_DRAFTS_URL = "https://mail.google.com/mail/u/0/#drafts"
 
 def _load_google_imports():
     try:
+        from google.auth.exceptions import RefreshError
         from google.auth.transport.requests import Request
         from google.oauth2.credentials import Credentials
         from google_auth_oauthlib.flow import InstalledAppFlow
         from googleapiclient.discovery import build
 
-        return Request, Credentials, InstalledAppFlow, build
+        return Request, Credentials, InstalledAppFlow, build, RefreshError
 
     except ImportError as exc:
         raise RuntimeError(
@@ -50,17 +51,29 @@ def _get_gmail_service():
             "download it as credentials.json, or set GMAIL_CREDENTIALS_FILE."
         )
 
-    Request, Credentials, InstalledAppFlow, build = _load_google_imports()
+    Request, Credentials, InstalledAppFlow, build, RefreshError = _load_google_imports()
 
     creds = None
 
     if os.path.exists(token_file):
-        creds = Credentials.from_authorized_user_file(token_file, SCOPES)
+        try:
+            creds = Credentials.from_authorized_user_file(token_file, SCOPES)
+        except ValueError:
+            os.remove(token_file)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+            except RefreshError:
+                # Google returns invalid_grant when the saved refresh token is
+                # revoked, expired, or issued for changed OAuth settings.
+                if os.path.exists(token_file):
+                    os.remove(token_file)
+
+                creds = None
+
+        if not creds or not creds.valid:
             flow = InstalledAppFlow.from_client_secrets_file(credentials_file, SCOPES)
             creds = flow.run_local_server(port=0)
 

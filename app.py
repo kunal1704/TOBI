@@ -2653,11 +2653,33 @@ def render_workflow():
             render_html(progress_markup(2))
 
         st.session_state.workflow_status["Gmail Save"] = "running"
-        gmail_result = create_gmail_draft(
-            to_email=recipient_email,
-            subject=draft["subject"],
-            body=draft["body"],
-        )
+        try:
+            gmail_result = create_gmail_draft(
+                to_email=recipient_email,
+                subject=draft["subject"],
+                body=draft["body"],
+            )
+        except Exception as exc:
+            st.session_state.workflow_status["Gmail Save"] = "failed"
+            st.session_state.gmail_result = None
+
+            progress_slot.empty()
+            with progress_slot.container():
+                render_html(
+                    progress_markup(
+                        3,
+                        error="Gmail needs to be reconnected before TOBI can save this draft.",
+                    )
+                )
+
+            st.error(f"Gmail draft save failed: {exc}")
+            st.info(
+                "If a browser authorization window opened, complete it and generate the draft again. "
+                "If not, delete token.json and retry so Google can issue a fresh token."
+            )
+            st.text_input("Generated Subject", value=draft.get("subject", ""))
+            st.text_area("Generated Body", value=draft.get("body", ""), height=260)
+            st.stop()
 
         st.session_state.gmail_result = gmail_result
         st.session_state.workflow_status["Gmail Save"] = "completed"
@@ -2678,7 +2700,7 @@ def render_workflow():
             render_html(progress_markup(4))
 
         render_success(extraction_summary)
-    elif st.session_state.email_draft:
+    elif st.session_state.email_draft and st.session_state.gmail_result:
         render_success()
 
 
