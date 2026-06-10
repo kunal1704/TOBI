@@ -67,12 +67,13 @@ Structured Personalization Context
 ## Installation
 
 ```bash
-conda env create -f environment.yml
+conda env create -f environment.local.yml
 conda activate tobi
 ```
 
 For Streamlit Cloud deployment, use `requirements.txt` in the repository root.
-The Conda file is for local development.
+The Conda file is intentionally named `environment.local.yml` for local
+development so Streamlit Cloud uses the pip dependency set.
 
 ## Environment Variables
 
@@ -130,6 +131,7 @@ Public safety notes:
 - Generated/user-provided draft content is escaped before being rendered in the app.
 - Fetched website text is treated as untrusted context in the drafting prompt.
 - The local username/password store in `.tobi_data/` is for V1/demo use, not a production auth system.
+- If optional extraction or ranking packages fail to load, TOBI falls back gracefully instead of crashing.
 
 ## Future Work
 

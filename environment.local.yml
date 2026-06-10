@@ -9,7 +9,6 @@ dependencies:
   - pip
 
   - pip:
-      - git
       - streamlit
       - openai
       - trafilatura

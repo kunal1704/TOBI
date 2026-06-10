@@ -29,6 +29,39 @@ SEMANTIC_QUERIES = [
 ]
 
 
+def _rank_pages_lexically(page_data):
+    terms = {
+        term
+        for query in SEMANTIC_QUERIES
+        for term in query.lower().split()
+        if len(term) > 3
+    }
+    ranked_pages = []
+
+    for page in page_data:
+        text = page.get("text", "")
+
+        if not text or len(text.strip()) < 100:
+            continue
+
+        lower_text = text[:5000].lower()
+        matches = sum(lower_text.count(term) for term in terms)
+        score = matches / max(1, len(terms))
+
+        ranked_pages.append({
+            "url": page["url"],
+            "text": text,
+            "semantic_score": round(score, 4),
+        })
+
+    ranked_pages.sort(
+        key=lambda x: x["semantic_score"],
+        reverse=True
+    )
+
+    return ranked_pages
+
+
 def rank_pages_semantically(page_data):
 
     """
@@ -43,9 +76,12 @@ def rank_pages_semantically(page_data):
 
     global model, query_embeddings
 
-    from sentence_transformers import SentenceTransformer
-    from sklearn.metrics.pairwise import cosine_similarity
-    import numpy as np
+    try:
+        from sentence_transformers import SentenceTransformer
+        from sklearn.metrics.pairwise import cosine_similarity
+        import numpy as np
+    except ImportError:
+        return _rank_pages_lexically(page_data)
 
     if model is None:
         model = SentenceTransformer("all-MiniLM-L6-v2")

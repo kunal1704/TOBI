@@ -1,6 +1,6 @@
 import json
 
-from generation.llm_client import client
+from generation.llm_client import get_client
 
 
 def _parse_json_response(content):
@@ -55,7 +55,7 @@ def build_user_profile(source_payload):
     {json.dumps(source_payload, indent=2)[:18000]}
     """
 
-    response = client.chat.completions.create(
+    response = get_client().chat.completions.create(
         model="openai/gpt-oss-120b:free",
         temperature=0.25,
         messages=[

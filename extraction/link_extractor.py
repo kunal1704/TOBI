@@ -1,4 +1,3 @@
-import requests
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 
@@ -32,6 +31,8 @@ class _HrefParser(HTMLParser):
 
 def get_internal_links(base_url):
     try:
+        import requests
+
         safe_url = validate_public_url(base_url)
         response = requests.get(
             safe_url,

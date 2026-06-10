@@ -2331,7 +2331,11 @@ def render_profile_page():
                 "file_sources": file_sources,
             }
 
-            built_profile = build_user_profile(source_payload)
+            try:
+                built_profile = build_user_profile(source_payload)
+            except Exception as exc:
+                st.error(f"TOBI could not build your sender profile: {exc}")
+                st.stop()
 
         if "error" in built_profile:
             st.error("TOBI could not parse the generated profile.")
@@ -2662,7 +2666,7 @@ def render_workflow():
 
         try:
             extraction_summary = run_retrieval_pipeline(website)
-        except ValueError as exc:
+        except Exception as exc:
             render_html(progress_markup(0, error=str(exc)))
             st.error(str(exc))
             st.stop()
@@ -2674,11 +2678,17 @@ def render_workflow():
             render_html(progress_markup(1))
 
         st.session_state.workflow_status["Draft Creation"] = "running"
-        draft = generate_email_draft(
-            st.session_state.profile,
-            st.session_state.combined_text,
-            details,
-        )
+        try:
+            draft = generate_email_draft(
+                st.session_state.profile,
+                st.session_state.combined_text,
+                details,
+            )
+        except Exception as exc:
+            st.session_state.workflow_status["Draft Creation"] = "failed"
+            render_html(progress_markup(2, error="TOBI could not generate the draft."))
+            st.error(str(exc))
+            st.stop()
 
         if "error" in draft:
             st.session_state.workflow_status["Draft Creation"] = "failed"

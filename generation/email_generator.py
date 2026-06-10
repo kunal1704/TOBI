@@ -1,6 +1,6 @@
 import json
 
-from generation.llm_client import client
+from generation.llm_client import get_client
 
 
 """
@@ -60,7 +60,7 @@ def generate_email_draft(profile, context, details):
     {json.dumps(details, indent=2)}
     """
 
-    response = client.chat.completions.create(
+    response = get_client().chat.completions.create(
         model="openai/gpt-oss-120b:free",
         temperature=0.45,
         messages=[

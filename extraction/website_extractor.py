@@ -3,8 +3,6 @@ import socket
 from html.parser import HTMLParser
 from urllib.parse import urlparse
 
-import requests
-
 
 """
 Website Content Extraction Module
@@ -82,6 +80,14 @@ def validate_public_url(url):
 
 def extract_website_text(url):
     safe_url = validate_public_url(url)
+
+    try:
+        import requests
+    except ImportError as exc:
+        raise RuntimeError(
+            "The requests package is not installed. "
+            "Redeploy after Streamlit installs requirements.txt."
+        ) from exc
 
     try:
         import trafilatura

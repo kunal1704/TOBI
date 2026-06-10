@@ -1,6 +1,6 @@
 import json
 
-from generation.llm_client import client
+from generation.llm_client import get_client
 
 
 """
@@ -37,7 +37,7 @@ def extract_recipient_profile(context):
     {context}
     """
 
-    response = client.chat.completions.create(
+    response = get_client().chat.completions.create(
     model="openai/gpt-oss-120b:free",
 
     temperature=0.3,

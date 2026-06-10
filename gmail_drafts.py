@@ -2,8 +2,6 @@ import base64
 import os
 from email.message import EmailMessage
 
-from dotenv import load_dotenv
-
 
 """
 Gmail Draft Service
@@ -39,7 +37,13 @@ def _load_google_imports():
 
 
 def _get_gmail_service():
-    load_dotenv()
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        load_dotenv = None
+
+    if load_dotenv is not None:
+        load_dotenv()
 
     credentials_file = os.getenv("GMAIL_CREDENTIALS_FILE", DEFAULT_CREDENTIALS_FILE)
     token_file = os.getenv("GMAIL_TOKEN_FILE", DEFAULT_TOKEN_FILE)

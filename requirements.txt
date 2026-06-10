@@ -2,16 +2,10 @@ streamlit
 openai
 requests
 beautifulsoup4
+trafilatura
 lxml
 scikit-learn
 sentence-transformers
 python-dotenv
-google-api-python-client
-google-auth
-google-auth-httplib2
-google-auth-oauthlib
 pypdf
 python-docx
-torch
-torchvision
-torchaudio
