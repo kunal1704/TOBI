@@ -1,5 +1,7 @@
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from html import escape
+import os
 from textwrap import dedent
 
 import streamlit as st
@@ -67,6 +69,7 @@ def initialize_state():
         "combined_text": "",
         "ranked_pages": [],
         "email_draft": None,
+        "gmail_draft_saved": False,
         "gmail_result": None,
         "outreach_history": [],
         "workflow_status": {},
@@ -103,6 +106,11 @@ def is_auth_mode():
 
 def is_logout_mode():
     return current_mode() == "logout"
+
+
+def gmail_drafts_enabled():
+    value = os.getenv("TOBI_ENABLE_GMAIL_DRAFTS", "true").strip().lower()
+    return value in {"1", "true", "yes", "on"}
 
 
 def get_current_profile():
@@ -189,7 +197,7 @@ def add_outreach_record(details, draft, extraction_summary, gmail_result):
         "tone": details["tone"],
         "goal": details["outreach_goal"],
         "subject": draft.get("subject", ""),
-        "gmail_url": gmail_result.get("gmail_url", GMAIL_DRAFTS_URL),
+        "gmail_url": gmail_result.get("gmail_url", ""),
         "links_found": extraction_summary["links_found"],
         "relevant_links": extraction_summary["relevant_links"],
         "pages_ranked": extraction_summary["pages_ranked"],
@@ -2345,14 +2353,27 @@ def run_retrieval_pipeline(website):
             "text": homepage_text,
         })
 
-    for item in filtered_links[:MAX_PAGES]:
-        extracted = extract_website_text(item["url"])
+    relevant_links = filtered_links[:MAX_PAGES]
 
-        if extracted:
-            page_data.append({
-                "url": item["url"],
-                "text": extracted,
-            })
+    with ThreadPoolExecutor(max_workers=min(4, max(1, len(relevant_links)))) as executor:
+        future_to_url = {
+            executor.submit(extract_website_text, item["url"]): item["url"]
+            for item in relevant_links
+        }
+
+        for future in as_completed(future_to_url):
+            url = future_to_url[future]
+
+            try:
+                extracted = future.result()
+            except Exception:
+                extracted = None
+
+            if extracted:
+                page_data.append({
+                    "url": url,
+                    "text": extracted,
+                })
 
     st.session_state.workflow_status["Semantic Ranking"] = "running"
     ranked_pages = rank_pages_semantically(page_data)
@@ -2381,11 +2402,16 @@ def run_retrieval_pipeline(website):
 
 
 def progress_markup(active_step, error=None):
+    save_step = (
+        ("04", "Save to Gmail", "Creating draft")
+        if gmail_drafts_enabled()
+        else ("04", "Review draft", "Ready to copy")
+    )
     steps = [
         ("01", "Extract website", "Crawling source pages"),
         ("02", "Build profile", "Ranking useful signal"),
         ("03", "Write draft", "Generating subject/body"),
-        ("04", "Save to Gmail", "Creating draft"),
+        save_step,
     ]
 
     rendered_steps = []
@@ -2514,7 +2540,8 @@ def render_workflow():
                 with col7:
                     call_to_action = st.text_input(
                         "Call to Action",
-                        value="Would you be open to a short conversation?",
+                        value="",
+                        placeholder="Optional: e.g. Would you be open to a short conversation?",
                     )
 
             sender_affiliation = st.text_input(
@@ -2619,7 +2646,13 @@ def render_workflow():
         with progress_slot.container():
             render_html(progress_markup(0))
 
-        extraction_summary = run_retrieval_pipeline(website)
+        try:
+            extraction_summary = run_retrieval_pipeline(website)
+        except ValueError as exc:
+            render_html(progress_markup(0, error=str(exc)))
+            st.error(str(exc))
+            st.stop()
+
         st.session_state.extraction_summary = extraction_summary
 
         progress_slot.empty()
@@ -2648,6 +2681,24 @@ def render_workflow():
         st.session_state.email_draft = draft
         st.session_state.workflow_status["Draft Creation"] = "completed"
 
+        if not gmail_drafts_enabled():
+            st.session_state.gmail_result = {}
+            st.session_state.gmail_draft_saved = False
+            add_outreach_record(
+                details,
+                draft,
+                extraction_summary,
+                {},
+            )
+
+            progress_slot.empty()
+            with progress_slot.container():
+                render_html(progress_markup(4))
+
+            st.info("Gmail draft saving is disabled in this deployment. Review and copy the generated draft below.")
+            render_success(extraction_summary)
+            return
+
         progress_slot.empty()
         with progress_slot.container():
             render_html(progress_markup(2))
@@ -2662,6 +2713,7 @@ def render_workflow():
         except Exception as exc:
             st.session_state.workflow_status["Gmail Save"] = "failed"
             st.session_state.gmail_result = None
+            st.session_state.gmail_draft_saved = False
 
             progress_slot.empty()
             with progress_slot.container():
@@ -2682,6 +2734,7 @@ def render_workflow():
             st.stop()
 
         st.session_state.gmail_result = gmail_result
+        st.session_state.gmail_draft_saved = True
         st.session_state.workflow_status["Gmail Save"] = "completed"
 
         progress_slot.empty()
@@ -2700,23 +2753,29 @@ def render_workflow():
             render_html(progress_markup(4))
 
         render_success(extraction_summary)
-    elif st.session_state.email_draft and st.session_state.gmail_result:
+    elif st.session_state.email_draft and st.session_state.gmail_result is not None:
         render_success()
 
 
 def render_success(extraction_summary=None):
     draft = st.session_state.email_draft
-    gmail_url = st.session_state.gmail_result.get("gmail_url", GMAIL_DRAFTS_URL)
+    gmail_saved = bool(st.session_state.get("gmail_draft_saved"))
+    gmail_result = st.session_state.gmail_result or {}
+    gmail_url = gmail_result.get("gmail_url", GMAIL_DRAFTS_URL) if gmail_saved else ""
+    success_title = "Draft Saved" if gmail_saved else "Draft Ready"
 
     latest = st.session_state.outreach_history[0] if st.session_state.outreach_history else {}
+    recipient_name = escape(latest.get("recipient_name", ""))
+    recipient_website = escape(latest.get("website", ""))
+    generated_at = escape(latest.get("created_at", ""))
 
     render_html(
         f"""
         <div class="runtime-card">
-            <div class="runtime-card-header">✓ Draft Saved</div>
-            {f'<div class="preview-row"><span class="preview-label">Recipient</span><span class="preview-value">{latest["recipient_name"]}</span></div>' if latest.get("recipient_name") else ''}
-            {f'<div class="preview-row"><span class="preview-label">Website</span><span class="preview-value">{latest["website"]}</span></div>' if latest.get("website") else ''}
-            {f'<div class="preview-row"><span class="preview-label">Generated</span><span class="preview-value">{latest["created_at"]}</span></div>' if latest.get("created_at") else ''}
+            <div class="runtime-card-header">✓ {success_title}</div>
+            {f'<div class="preview-row"><span class="preview-label">Recipient</span><span class="preview-value">{recipient_name}</span></div>' if recipient_name else ''}
+            {f'<div class="preview-row"><span class="preview-label">Website</span><span class="preview-value">{recipient_website}</span></div>' if recipient_website else ''}
+            {f'<div class="preview-row"><span class="preview-label">Generated</span><span class="preview-value">{generated_at}</span></div>' if generated_at else ''}
         </div>
         """
     )
@@ -2743,7 +2802,7 @@ def render_success(extraction_summary=None):
             """
         )
 
-    if "gmail_opened" not in st.session_state:
+    if gmail_saved and "gmail_opened" not in st.session_state:
         st.session_state.gmail_opened = True
 
         components.html(
@@ -2760,6 +2819,14 @@ def render_success(extraction_summary=None):
     to_name = latest.get("recipient_name", "")
     to_email = latest.get("recipient_email", "")
     to_display = f"{to_name} <{to_email}>" if to_name and to_email else (to_name or to_email or "Recipient")
+    safe_to_display = escape(to_display)
+    safe_subject = escape(draft.get("subject", ""))
+    safe_body = escape(draft.get("body", "")).replace(chr(10), "<br>")
+    gmail_cta = (
+        f'<div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:1.5rem;text-align:center"><a class="gmail-link" href="{gmail_url}" target="_blank" rel="noopener">Open Gmail Draft →</a></div>'
+        if gmail_saved
+        else ""
+    )
 
     render_html(
         f"""
@@ -2770,12 +2837,10 @@ def render_success(extraction_summary=None):
             </div>
             <div class="workspace-card-body">
                 <div class="email-field"><span class="email-field-label">from</span><span class="email-field-value">your@email.com</span></div>
-                <div class="email-field"><span class="email-field-label">to</span><span class="email-field-value">{to_display}</span></div>
-                <div class="email-subject">{draft.get("subject", "")}</div>
-                <div class="email-content">{draft.get("body", "").replace(chr(10), "<br>")}</div>
-                <div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:1.5rem;text-align:center">
-                    <a class="gmail-link" href="{gmail_url}" target="_blank" rel="noopener">Open Gmail Draft →</a>
-                </div>
+                <div class="email-field"><span class="email-field-label">to</span><span class="email-field-value">{safe_to_display}</span></div>
+                <div class="email-subject">{safe_subject}</div>
+                <div class="email-content">{safe_body}</div>
+                {gmail_cta}
             </div>
         </div>
         """

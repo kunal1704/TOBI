@@ -12,6 +12,7 @@ LLM-based personalization.
 """
 
 model = None
+query_embeddings = None
 
 # Semantic queries representing useful academic/professional content
 SEMANTIC_QUERIES = [
@@ -40,7 +41,7 @@ def rank_pages_semantically(page_data):
     ]
     """
 
-    global model
+    global model, query_embeddings
 
     from sentence_transformers import SentenceTransformer
     from sklearn.metrics.pairwise import cosine_similarity
@@ -49,10 +50,10 @@ def rank_pages_semantically(page_data):
     if model is None:
         model = SentenceTransformer("all-MiniLM-L6-v2")
 
-    ranked_pages = []
+    valid_pages = []
 
-    # Create query embeddings
-    query_embeddings = model.encode(SEMANTIC_QUERIES)
+    if query_embeddings is None:
+        query_embeddings = model.encode(SEMANTIC_QUERIES)
 
     for page in page_data:
 
@@ -61,24 +62,25 @@ def rank_pages_semantically(page_data):
         if not text or len(text.strip()) < 100:
             continue
 
-        # Limit text size for efficiency
-        truncated_text = text[:3000]
+        valid_pages.append({
+            "url": page["url"],
+            "text": text,
+            "truncated_text": text[:3000],
+        })
 
-        # Embed page
-        page_embedding = model.encode([truncated_text])
+    if not valid_pages:
+        return []
 
-        # Compute similarity with all semantic queries
-        similarities = cosine_similarity(
-            page_embedding,
-            query_embeddings
-        )[0]
+    page_embeddings = model.encode([page["truncated_text"] for page in valid_pages])
+    similarities = cosine_similarity(page_embeddings, query_embeddings)
+    ranked_pages = []
 
-        # Take best similarity score
-        best_score = float(np.max(similarities))
+    for page, page_similarities in zip(valid_pages, similarities):
+        best_score = float(np.max(page_similarities))
 
         ranked_pages.append({
             "url": page["url"],
-            "text": text,
+            "text": page["text"],
             "semantic_score": round(best_score, 4)
         })
 
