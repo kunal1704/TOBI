@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from html import escape
 import os
 from textwrap import dedent
+from urllib.parse import quote
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -111,6 +112,19 @@ def is_logout_mode():
 def gmail_drafts_enabled():
     value = os.getenv("TOBI_ENABLE_GMAIL_DRAFTS", "true").strip().lower()
     return value in {"1", "true", "yes", "on"}
+
+
+def build_gmail_compose_url(to_email, subject, body):
+    params = {
+        "view": "cm",
+        "fs": "1",
+        "to": to_email or "",
+        "su": subject or "",
+        "body": body or "",
+    }
+    query = "&".join(f"{key}={quote(value, safe='')}" for key, value in params.items())
+
+    return f"https://mail.google.com/mail/?{query}"
 
 
 def get_current_profile():
@@ -2822,10 +2836,15 @@ def render_success(extraction_summary=None):
     safe_to_display = escape(to_display)
     safe_subject = escape(draft.get("subject", ""))
     safe_body = escape(draft.get("body", "")).replace(chr(10), "<br>")
+    gmail_compose_url = build_gmail_compose_url(
+        to_email,
+        draft.get("subject", ""),
+        draft.get("body", ""),
+    )
     gmail_cta = (
         f'<div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:1.5rem;text-align:center"><a class="gmail-link" href="{gmail_url}" target="_blank" rel="noopener">Open Gmail Draft →</a></div>'
         if gmail_saved
-        else ""
+        else f'<div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:1.5rem;text-align:center"><a class="gmail-link" href="{gmail_compose_url}" target="_blank" rel="noopener">Open in Gmail to Save Draft →</a><p class="section-sub" style="margin-top:.75rem;margin-bottom:0">This opens Gmail compose in your account with the draft prefilled.</p></div>'
     )
 
     render_html(

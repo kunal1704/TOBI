@@ -116,6 +116,11 @@ Recommended showcase setup:
 4. Do not upload `.env`, `credentials.json`, `token.json`, `.streamlit/`, or `.tobi_data/`.
 5. Use a fresh production API key with usage limits and revoke/rotate it if exposed.
 
+When Gmail draft saving is disabled, TOBI still shows an `Open in Gmail to Save
+Draft` link after generation. That link opens Gmail compose in the user's own
+browser with the recipient, subject, and body prefilled, without storing Gmail
+OAuth tokens on the deployed server.
+
 Public safety notes:
 
 - TOBI rejects localhost, private IP, and internal metadata URLs before fetching website content.
