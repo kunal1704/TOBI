@@ -11,9 +11,7 @@ import streamlit.components.v1 as components
 from auth_storage import (
     clear_remembered_user,
     create_user,
-    get_remembered_user,
     get_user,
-    remember_user,
     save_user_profile,
     verify_user,
 )
@@ -81,12 +79,6 @@ def initialize_state():
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
-
-    if st.session_state.current_user is None:
-        remembered_user = get_remembered_user()
-
-        if remembered_user:
-            st.session_state.current_user = remembered_user
 
 
 def is_try_mode():
@@ -1679,7 +1671,7 @@ def render_landing():
         to_email = escape(sample.get("recipient_email", ""))
         to_display = f"{hero_name} &lt;{to_email}&gt;"
         subject = escape(draft.get("subject", ""))
-        body = draft.get("body", "").replace(chr(10), "<br>")
+        body = escape(draft.get("body", "")).replace(chr(10), "<br>")
     else:
         hero_name = "Prof. Aditya Rao"
         hero_website = "rai-lab.edu"
@@ -1881,9 +1873,9 @@ def render_auth_page():
         """
         <section class="auth-shell">
             <div class="eyebrow"><span class="eyebrow-dot"></span>TOBI Account</div>
-            <h1 class="workflow-headline">Save your sender profile<br>on this device.</h1>
+            <h1 class="workflow-headline">Save your sender profile<br>for reuse.</h1>
             <p class="hero-sub">
-                Sign up or log in to keep your sender profile and avoid re-entering the same information.
+                Sign up or log in to keep your sender profile available for future drafts.
             </p>
         </section>
         """
@@ -1895,7 +1887,6 @@ def render_auth_page():
         with st.form("login_form"):
             email = st.text_input("Email", key="login_email")
             password = st.text_input("Password", type="password", key="login_password")
-            remember = st.checkbox("Stay signed in on this device", value=True)
             submitted = st.form_submit_button("Login")
 
         if submitted:
@@ -1907,9 +1898,6 @@ def render_auth_page():
 
             st.session_state.current_user = user
 
-            if remember:
-                remember_user(user["email"])
-
             st.query_params["mode"] = "profile"
             st.rerun()
 
@@ -1918,7 +1906,6 @@ def render_auth_page():
             full_name = st.text_input("Full Name", key="signup_name")
             email = st.text_input("Email", key="signup_email")
             password = st.text_input("Password", type="password", key="signup_password")
-            remember = st.checkbox("Stay signed in on this device", value=True, key="signup_remember")
             submitted = st.form_submit_button("Create Account")
 
         if submitted:
@@ -1933,9 +1920,6 @@ def render_auth_page():
                 st.stop()
 
             st.session_state.current_user = user
-
-            if remember:
-                remember_user(user["email"])
 
             st.query_params["mode"] = "profile"
             st.rerun()

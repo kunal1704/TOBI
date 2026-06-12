@@ -8,7 +8,7 @@ from datetime import datetime
 
 DATA_DIR = ".tobi_data"
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
-SESSION_FILE = os.path.join(DATA_DIR, "remembered_session.json")
+LEGACY_SESSION_FILE = os.path.join(DATA_DIR, "remembered_session.json")
 
 
 def _ensure_data_dir():
@@ -111,20 +111,6 @@ def save_user_profile(email, profile):
     return users[email]
 
 
-def remember_user(email):
-    _save_json(SESSION_FILE, {"email": email.strip().lower()})
-
-
-def get_remembered_user():
-    session = _load_json(SESSION_FILE, {})
-    email = session.get("email")
-
-    if not email:
-        return None
-
-    return get_user(email)
-
-
 def clear_remembered_user():
-    if os.path.exists(SESSION_FILE):
-        os.remove(SESSION_FILE)
+    if os.path.exists(LEGACY_SESSION_FILE):
+        os.remove(LEGACY_SESSION_FILE)
