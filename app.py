@@ -2191,7 +2191,7 @@ def render_profile_page():
         render_auth_page()
         return
 
-    render_nav(show_try=True)
+    render_nav(show_try=False)
     user = st.session_state.current_user
     saved_profile = user.get("profile") or {}
     has_saved_profile = bool(saved_profile)
@@ -2212,7 +2212,39 @@ def render_profile_page():
     render_profile_summary(saved_profile)
 
     if has_saved_profile and not st.session_state.get("editing_sender_profile", False):
-        if st.button("Update Profile", type="primary"):
+        render_html(
+            """
+            <div class="workspace-card" style="margin:1rem 0 1.25rem">
+                <div class="workspace-card-body">
+                    <p class="section-label">Profile Ready</p>
+                    <h2 class="section-headline" style="margin-bottom:.6rem">Your outreach engine is warmed up.</h2>
+                    <p class="section-sub" style="margin-bottom:0">
+                        Start with a recipient website and TOBI will use this sender profile to write a draft that sounds like you.
+                    </p>
+                </div>
+            </div>
+            """
+        )
+        start_col, update_col = st.columns([1.25, 1])
+
+        with start_col:
+            start_drafting = st.button(
+                "Start Drafting",
+                type="primary",
+                use_container_width=True,
+            )
+
+        with update_col:
+            update_profile = st.button(
+                "Update Profile",
+                use_container_width=True,
+            )
+
+        if start_drafting:
+            st.query_params["mode"] = "try"
+            st.rerun()
+
+        if update_profile:
             st.session_state.editing_sender_profile = True
             st.rerun()
 
