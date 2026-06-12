@@ -102,7 +102,7 @@ def is_logout_mode():
 
 
 def gmail_drafts_enabled():
-    value = os.getenv("TOBI_ENABLE_GMAIL_DRAFTS", "true").strip().lower()
+    value = os.getenv("TOBI_ENABLE_GMAIL_DRAFTS", "false").strip().lower()
     return value in {"1", "true", "yes", "on"}
 
 
