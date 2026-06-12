@@ -84,6 +84,13 @@ OPENROUTER_API_KEY=your_key_here
 TOBI_ENABLE_GMAIL_DRAFTS=false
 ```
 
+For Streamlit Cloud, add the same values through the app's Secrets settings:
+
+```toml
+OPENROUTER_API_KEY = "your_key_here"
+TOBI_ENABLE_GMAIL_DRAFTS = "false"
+```
+
 Optional Gmail settings:
 
 ```bash
